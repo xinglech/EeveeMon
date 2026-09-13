@@ -8,6 +8,8 @@ A Gen V animated Pokémon desktop pet for Windows — a mod of
 The pet lives on your taskbar, walks around with gravity physics,
 and everything is controlled by right-clicking the sprite.
 
+![Selection screen: Bulbasaur, Charmander, Squirtle, Eevee, Torchic](selection_screen.png)
+
 ## Features
 
 - **5 starter cards**: Bulbasaur / Charmander / Squirtle / **Eevee (Multi)** / **Torchic (Fighting)**
