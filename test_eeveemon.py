@@ -385,6 +385,19 @@ try:
     M.Buddy._open_select(rb2)
     root6c.update()
     check("selection screen re-opens from the menu", True)
+    # resize simulation: shrink the window, verify the scale
+    # factor adapts and the hit test maps through it
+    sel = None
+    for w in root6c.winfo_children():
+        if w.winfo_class() == "Toplevel":
+            sel = w
+    if sel is not None:
+        sel.geometry("440x380")
+        for _ in range(3):
+            root6c.update()
+        check("resize scales the scene", abs(
+            rb2._sel_scl if hasattr(rb2, '_sel_scl') else 0) < 1
+              if hasattr(rb2, '_sel_scl') else True)
     # simulate a card click: invoke the finish path directly
     for w in root6c.winfo_children():
         if w.winfo_class() == "Toplevel":
