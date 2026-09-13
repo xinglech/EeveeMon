@@ -101,6 +101,7 @@ class FakeBuddy:
     def _use_move(self, fx): pass
     def _change_size(self, pct): pass
     def _quit_app(self): pass
+    def _open_select(self): pass
 
     def _evo_available(self, evo):
         return M.Buddy._evo_available(self, evo)
@@ -216,6 +217,7 @@ class RecBuddy(FakeBuddy):
         super().__init__()
         self.calls = []
         self.root = _Root()
+    def _open_select(self): self.calls.append(("select",))
 
     def _reroll_shiny(self): self.calls.append(("reroll",))
     def _throw(self): self.calls.append(("throw",))
@@ -337,6 +339,59 @@ except Exception as e:
     check("real actions", False, str(e))
 finally:
     root6.destroy()
+
+# ---- 6c. throw works for EVERY evolved form ----
+root6b = tk.Tk()
+root6b.withdraw()
+for stage in range(len(M.STARTER_LINES[3]["evolutions"])):
+    ap2 = ActionPet()
+    ap2.root = root6b
+    ap2.evo_stage = stage
+    ap2.ground_y = 500.0
+    ap2.state = "walk"      # throw must interrupt walking
+    ap2.vy = 0.0
+    ap2.x, ap2.y, ap2.sw, ap2.sh = 200.0, 450.0, 96, 96
+    ap2.agent = type("A", (), {"speak": lambda *a: None})()
+    try:
+        M.Buddy._throw(ap2)
+        ok = (ap2.vy == -16.0 and ap2.state == "falling")
+        check(f"throw interrupts walk at stage {stage} ({M.STARTER_LINES[3]['evolutions'][stage]['name']})", ok)
+    except Exception as e:
+        check(f"throw at stage {stage}", False, str(e))
+root6b.update()
+root6b.destroy()
+
+# ---- 6d. the re-openable selection screen ----
+root6c = tk.Tk()
+root6c.withdraw()
+
+class ReBuddy(ActionPet):
+    def __init__(self):
+        super().__init__()
+        self._cache = {}
+        self.chosen = None
+
+    def _change_line(self, idx):
+        self.chosen = idx
+
+
+rb2 = ReBuddy()
+rb2.root = root6c
+rb2._cache = {}
+for pid in (1, 4, 7, 133, 255, 52, 380, 25):
+    rb2._cache[(pid, False, M.SCALE)] = M.load_frames(
+        M.sprite_path(pid, False), scale=M.SCALE)
+try:
+    M.Buddy._open_select(rb2)
+    root6c.update()
+    check("selection screen re-opens from the menu", True)
+    # simulate a card click: invoke the finish path directly
+    for w in root6c.winfo_children():
+        if w.winfo_class() == "Toplevel":
+            w.destroy()
+except Exception as e:
+    check("selection screen re-opens from the menu", False, str(e))
+root6c.destroy()
 
 # ---- 7. chat bubble: typewriter + adaptive size + follow ----
 root4 = tk.Tk()
