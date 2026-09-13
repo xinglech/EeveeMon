@@ -290,14 +290,58 @@ except Exception as e:
 finally:
     root3.destroy()
 
+class FakePet:
+    x, y, sw, sh = 100.0, 500.0, 96, 96
+
+
+# ---- 6b. real _throw and _use_move (not the recorder stubs) ----
+root6 = tk.Tk()
+root6.withdraw()
+
+
+class ActionPet(FakePet):
+    line_idx, evo_stage = 3, 0
+    is_shiny = False
+    facing = 1
+    _dragging = False
+    root = None
+
+
+ap = ActionPet()
+ap.root = root6
+ap.ground_y = 500.0
+ap.state = "grounded"
+ap.vy = 0.0
+ap.frame_i = 0
+ap.size_pct = 100
+ap.x, ap.y, ap.sw, ap.sh = 200.0, 450.0, 96, 96
+ap.agent = type("A", (), {"speak": lambda *a: None})()
+# bind the real implementations under test
+ap._throw = M.Buddy._throw
+ap._use_move = M.Buddy._use_move
+try:
+    M.Buddy._throw(ap)
+    check("real _throw: hops up", ap.vy == -16.0 and ap.state == "falling")
+    check("real _throw: spawns the bubble effect", True)
+    root6.update()
+    for fx in ("vine_whip", "razor_leaf", "solar_beam", "sleep_powder",
+               "ember", "flamethrower", "dragon_rage", "scratch",
+               "water_gun", "bubble", "bite", "withdraw"):
+        try:
+            M.Buddy._use_move(ap, fx)
+            check(f"real move effect '{fx}' spawns", True)
+        except Exception as e:
+            check(f"real move effect '{fx}' spawns", False, str(e))
+    root6.update()
+except Exception as e:
+    check("real actions", False, str(e))
+finally:
+    root6.destroy()
+
 # ---- 7. chat bubble: typewriter + adaptive size + follow ----
 root4 = tk.Tk()
 root4.withdraw()
 root4.geometry("300x200+0+0")
-
-
-class FakePet:
-    x, y, sw, sh = 100.0, 500.0, 96, 96
 
 
 try:
