@@ -28,7 +28,7 @@ entirely controlled from its right-click menu.
 
 ## Features
 
-**Roster** — five starter cards on the selection screen:
+**Roster** — six starter cards on the selection screen:
 
 | Line | Type | Evolution |
 |---|---|---|
@@ -37,6 +37,7 @@ entirely controlled from its right-click menu.
 | Squirtle | Water | Squirtle → Wartortle → Blastoise |
 | **Eevee** | **Multi** | Eevee → any of the 8 Eeveelutions (branching) |
 | **Torchic** | Fighting | Torchic → Combusken → Blaziken |
+| **Meowth** | Normal | none (single form) |
 
 **Branching evolution** — Eevee's right-click *Evolve* menu offers all eight
 Eeveelutions, each with its canonical method displayed and enforced:
@@ -80,9 +81,23 @@ bundled inside the executable.
 Windows, Python 3.8+:
 
 ```bat
-python fetch_sprites.py     REM downloads the 48 sprites into sprites/
+python fetch_sprites.py     REM downloads the sprites into sprites/
 python eeveemon.py
 ```
+
+### Option C — macOS (source run)
+
+The pet is cross-platform: on macOS it uses the window's
+`-transparent` attribute with alpha-keyed frames instead of
+the Windows colour key, and walks above the Dock. No binary
+is provided for macOS (built on Windows) — run from source:
+
+```sh
+chmod +x run_mac.sh && ./run_mac.sh
+```
+
+or manually: `python3 -m pip install Pillow`,
+`python3 fetch_sprites.py`, `python3 eeveemon.py`.
 
 ## Usage
 
@@ -132,6 +147,8 @@ printed or persisted anywhere else.
 build_exe.bat
 ```
 
+(Windows only — PyInstaller one-file builds are platform-specific.)
+
 This fetches the sprites if missing and produces a one-file
 `dist\EeveeMon.exe` via PyInstaller.
 
@@ -148,8 +165,9 @@ This fetches the sprites if missing and produces a one-file
     composited over the card background (selection screen)
 - `fetch_sprites.py` — sprite acquisition (Gen V animated GIFs from
   PokeAPI; not stored in this repository)
-- `EeveeMon.bat` — one-click restart for the dev machine
-- `build_exe.bat` — PyInstaller packaging
+- `EeveeMon.bat` — one-click restart for the dev machine (Windows)
+- `run_mac.sh` — one-command source run on macOS
+- `build_exe.bat` — PyInstaller packaging (Windows)
 
 ## Related projects
 
@@ -161,7 +179,7 @@ rather than sharing code; ideas are ported between them as features.
 |---|---|---|---|---|
 | Stack | Python + Tkinter | Python + Tkinter | C# / .NET 8 WPF | Python + PySide6 |
 | Scope | Taskbar pet | Taskbar pet | Full Tamagotchi | Shiny-hunting game |
-| Roster | 5 lines incl. 8-way Eevee branch | 3 Kanto lines | All 151 Gen-1 | Encounters, Gen 1–5 |
+| Roster | 6 lines incl. the 8-way Eevee branch | 3 Kanto lines | All 151 Gen-1 | Encounters, Gen 1–5 |
 | Evolution | Branching + stones (real economy) | Linear 3-stage | Needs/level-based, full life cycle | n/a |
 | Extras | Multi-provider AI chat | Optional AI chat | Needs, economy, minigames, weather layer | Encounter counters, collection |
 | Status | This project | Upstream (modded here) | Third-party; forked as reference | Third-party; forked as reference |
