@@ -1432,9 +1432,16 @@ class Buddy:
         m.add_command(label="Reroll Shiny", command=self._reroll_shiny)
         m.add_command(label="Throw Up",     command=self._throw)
         m.add_separator()
-        m.add_command(label="Quit",         command=self.root.destroy)
+        m.add_command(label="Quit",
+                      command=self._quit_app)
 
         self._menu = m
+
+    def _quit_app(self):
+        # destroy the root AFTER the menu has closed (destroying
+        # from inside a posted menu's callback is unreliable on
+        # Tk -- the 'cannot close' bug)
+        self.root.after(60, self.root.destroy)
 
     def _show_menu(self, e):
         try:    self._menu.tk_popup(e.x_root, e.y_root)
