@@ -614,7 +614,8 @@ class StarterSelect:
 
         self.win = tk.Toplevel(root)
         self.win.title("EeveeMon — Choose your starter!")
-        self.win.resizable(False, False)
+        self.win.resizable(True, True)   # freely resizable
+        self.win.minsize(480, 340)
         self.win.protocol("WM_DELETE_WINDOW", self._quit)
 
         sw = self.win.winfo_screenwidth()
@@ -626,7 +627,8 @@ class StarterSelect:
 
         self.c = tk.Canvas(self.win, width=self.W, height=self.H,
                            bg="#0E1F09", highlightthickness=0)
-        self.c.pack()
+        self.c.pack(fill="both", expand=True)
+        self._scl, self._ox, self._oy = 1.0, 0, 0
         self.c.bind("<Motion>",   self._on_motion)
         self.c.bind("<Button-1>", self._on_click)
 
@@ -660,10 +662,15 @@ class StarterSelect:
         self.win.destroy()
 
     def _hit(self, e):
+        scl = getattr(self, "_scl", 1.0) or 1.0
+        ox = getattr(self, "_ox", 0)
+        oy = getattr(self, "_oy", 0)
+        x = (e.x - ox) / scl
+        y = (e.y - oy) / scl
         for i in range(min(len(self.lines), 8)):
             cx = self.SLOT_CX[i % 4]
             cy = self.SLOT_CY[i // 4]
-            if (abs(e.x - cx) < 97 and cy < e.y < cy + self.CARD_H):
+            if (abs(x - cx) < 97 and cy < y < cy + self.CARD_H):
                 return i
         return -1
 
@@ -792,6 +799,23 @@ class StarterSelect:
         c.create_text(self.W // 2, self.H - 10,
                       text="Click a Pokémon to begin",
                       fill="#4A6840", font=("Segoe UI", 9))
+
+        # ── Free-resize: scale the whole scene to the current
+        # window size (content drawn at base coords, then scaled
+        # and centred; the backdrop is painted after the scale)
+        cw = max(1, c.winfo_width())
+        ch = max(1, c.winfo_height())
+        scl = min(cw / self.W, ch / self.H)
+        if abs(scl - 1.0) > 0.001:
+            c.scale("all", 0, 0, scl, scl)
+        ox = (cw - self.W * scl) / 2
+        oy = (ch - self.H * scl) / 2
+        if ox or oy:
+            c.move("all", ox, oy)
+        self._scl, self._ox, self._oy = scl, ox, oy
+        bg = c.create_rectangle(0, 0, cw, ch, fill="#0E1F09",
+                                outline="")
+        c.tag_lower(bg)
 
         self.frame += 1
         self.win.after(FRAME_MS, self._tick)
