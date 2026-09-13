@@ -282,6 +282,43 @@ except Exception as e:
 finally:
     root3.destroy()
 
+# ---- 7. chat bubble: typewriter + adaptive size + follow ----
+root4 = tk.Tk()
+root4.withdraw()
+root4.geometry("300x200+0+0")
+
+
+class FakePet:
+    x, y, sw, sh = 100.0, 500.0, 96, 96
+
+
+try:
+    bub = M.ChatBubble(root4, FakePet(), "Eevee", "#C6A76A",
+                       "Hello trainer! I am so happy to see you. "
+                       "Let's go on an adventure together, pika!")
+    check("bubble adapts width to text", 120 <= bub.W <= 360,
+          f"W={bub.W}")
+    root4.update()
+    # drive the typewriter to completion synchronously
+    for _ in range(len(bub.full_text) + 5):
+        bub._type()
+        root4.update()
+    got = bub.c.itemcget(bub.msg_item, "text")
+    check("typewriter completes the full text", got == bub.full_text,
+          got[:40])
+    # the follow reposition must not throw while the pet moves
+    FakePet.x = 400.0
+    try:
+        bub._reposition()
+        check("bubble repositions with the moving pet", True)
+    except Exception as e:
+        check("bubble repositions with the moving pet", False, str(e))
+    bub._dismiss()
+except Exception as e:
+    check("bubble lifecycle", False, str(e))
+finally:
+    root4.destroy()
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILURES: {FAILS}")
