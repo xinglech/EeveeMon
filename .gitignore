@@ -1,0 +1,12 @@
+# sprites are fetched at build time (PokeAPI, not stored in the repo)
+sprites/
+# pyinstaller artifacts
+dist/
+build/
+*.spec
+# never commit API keys
+*key*.txt
+apikey.txt
+provider.txt
+# python
+__pycache__/
