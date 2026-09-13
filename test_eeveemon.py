@@ -381,27 +381,30 @@ rb2._cache = {}
 for pid in (1, 4, 7, 133, 255, 52, 380, 25):
     rb2._cache[(pid, False, M.SCALE)] = M.load_frames(
         M.sprite_path(pid, False), scale=M.SCALE)
+cache2 = {(pid, False): v
+          for (pid, shiny, sc), v in rb2._cache.items()}
 try:
     M.Buddy._open_select(rb2)
     root6c.update()
     check("selection screen re-opens from the menu", True)
     # resize simulation: shrink the window, verify the scale
     # factor adapts and the hit test maps through it
-    sel = None
-    for w in root6c.winfo_children():
-        if w.winfo_class() == "Toplevel":
-            sel = w
-    if sel is not None:
-        sel.geometry("440x380")
-        for _ in range(3):
-            root6c.update()
-        check("resize scales the scene", abs(
-            rb2._sel_scl if hasattr(rb2, '_sel_scl') else 0) < 1
-              if hasattr(rb2, '_sel_scl') else True)
-    # simulate a card click: invoke the finish path directly
-    for w in root6c.winfo_children():
-        if w.winfo_class() == "Toplevel":
-            w.destroy()
+    # carousel interactions on a direct instance
+    chosen = []
+    selc = M.StarterSelect(root6c, cache2, M.STARTER_LINES,
+                           lambda i: chosen.append(i),
+                           quit_on_close=False)
+    selc._flip(1); selc._flip(1); selc._flip(1)
+    check("carousel flips advance", selc.sel == 3)
+    selc._flip(-1)
+    check("carousel flips wrap back", selc.sel == 2)
+    selc.win.geometry("420x420")
+    for _ in range(3):
+        root6c.update()
+    check("carousel resizes without error", True)
+    selc._choose()
+    root6c.update()
+    check("carousel choose confirms", selc.done is True)
 except Exception as e:
     check("selection screen re-opens from the menu", False, str(e))
 root6c.destroy()
