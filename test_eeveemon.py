@@ -16,8 +16,12 @@ import tkinter as tk   # noqa: E402
 FAILS = []
 
 
+import time as _T
+_T0 = _T.time()
+
+
 def check(name, ok, detail=""):
-    print(f"{'PASS' if ok else 'FAIL'}  {name}" +
+    print(f"{_T.time() - _T0:7.1f}s  {'PASS' if ok else 'FAIL'}  {name}" +
           (f"  [{detail}]" if detail else ""))
     if not ok:
         FAILS.append(name)
@@ -241,6 +245,10 @@ rb._evolve_to = _evo_rec
 rb.agent._client = "sk-test"
 rb.agent.speak = lambda *a: rb.calls.append(("talk",))
 rb.agent.look_around = lambda: rb.calls.append(("look",))
+# the walk invokes Quit: record it instead of destroying the
+# shared root mid-walk (the app's deferred destroy is covered
+# by the real Quit handler's own test path)
+rb._quit_app = lambda: rb.calls.append(("quit",))
 try:
     M.Buddy._build_menu(rb)
     m = rb._menu
@@ -318,6 +326,41 @@ except Exception as e:
     check("bubble lifecycle", False, str(e))
 finally:
     root4.destroy()
+
+# ---- 8. end-to-end AI chat (real API, real key file) ----
+import queue as _q
+keyfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "deepseek_key.txt")
+if os.path.exists(keyfile) and os.path.getsize(keyfile) > 10:
+    root5 = tk.Tk()
+    root5.withdraw()
+
+    class RealPet(FakePet):
+        line_idx, evo_stage = 3, 0
+        is_shiny = False
+        root = None
+
+    rp = RealPet()
+    rp.root = root5
+    try:
+        ag = M.AgentMind(rp)
+        check("agent loads the stored key", ag._client is not None)
+        shown = []
+        ag._show = lambda text: shown.append(text)   # track drain output
+        ag._api_thread("Say the single word: hello")
+        deadline = __import__("time").time() + 60
+        while __import__("time").time() < deadline and not shown:
+            root5.update()
+            __import__("time").sleep(0.1)
+        check("real API call shows text via the drain loop",
+              bool(shown) and len(shown[0]) > 0,
+              (shown[0][:40] if shown else "no bubble"))
+    except Exception as e:
+        check("end-to-end AI chat", False, str(e))
+    finally:
+        root5.destroy()
+else:
+    print("SKIP  end-to-end AI chat (no key file)")
 
 print()
 if FAILS:
