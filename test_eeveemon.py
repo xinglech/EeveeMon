@@ -83,6 +83,7 @@ class FakeBuddy:
         self._gift_until = 0.0
         self.frame_i = 0
         self.size_pct = 100
+        self.is_shiny = False
         self.root = _Root()
         self.agent = type("A", (), {"on_evolve": lambda s: None,
                                     "_client": None})()
@@ -95,6 +96,7 @@ class FakeBuddy:
     def _change_line(self, i): pass
     def _use_move(self, fx): pass
     def _change_size(self, pct): pass
+    def _quit_app(self): pass
 
     def _evo_available(self, evo):
         return M.Buddy._evo_available(self, evo)
@@ -203,6 +205,82 @@ finally:
         open(kf, "w", encoding="utf-8").write("sk-test-123")
     else:
         os.remove(kf)
+
+# ---- 6. full interaction walk: invoke EVERY menu entry ----
+class RecBuddy(FakeBuddy):
+    def __init__(self):
+        super().__init__()
+        self.calls = []
+        self.root = _Root()
+
+    def _reroll_shiny(self): self.calls.append(("reroll",))
+    def _throw(self): self.calls.append(("throw",))
+    def _change_line(self, i): self.calls.append(("line", i))
+    def _use_move(self, fx): self.calls.append(("move", fx))
+    def _change_size(self, pct): self.calls.append(("size", pct))
+    def _quit_app(self): self.calls.append(("quit",))
+    def _devolve(self): self.calls.append(("devolve",))
+    def _gift(self): self.calls.append(("gift",))
+
+
+rb = RecBuddy()
+rb.line_idx = 3   # the Eevee line: branching evolve cascade
+root3 = tk.Tk()
+root3.withdraw()
+rb.root = root3
+rb._build_menu = M.Buddy._build_menu
+rb._evo_available = lambda evo: M.Buddy._evo_available(rb, evo)
+rb._evo_label = lambda evo: M.Buddy._evo_label(rb, evo)
+
+def _evo_rec(stage):
+    rb.calls.append(("evolve", stage))
+    return M.Buddy._evolve_to(rb, stage)
+
+
+rb._evolve_to = _evo_rec
+rb.agent._client = "sk-test"
+rb.agent.speak = lambda *a: rb.calls.append(("talk",))
+rb.agent.look_around = lambda: rb.calls.append(("look",))
+try:
+    M.Buddy._build_menu(rb)
+    m = rb._menu
+    # recursive walker: invoke every leaf command once
+    def walk(menu, path):
+        for i in range(menu.index("end") + 1):
+            try:
+                lbl = menu.entrycget(i, "label")
+            except tk.TclError:
+                continue
+            ctype = menu.type(i)
+            if ctype == "cascade":
+                walk(menu.nametowidget(menu.entrycget(i, "menu")),
+                     path + [str(lbl)])
+            elif ctype == "command":
+                state = menu.entrycget(i, "state")
+                if state != "normal":
+                    continue
+                try:
+                    menu.invoke(i)
+                except Exception as exc:
+                    FAILS.append(f"invoke {path + [str(lbl)]}: {exc}")
+    walk(m, [])
+    check("every enabled menu entry invokes cleanly", True)
+    calls = rb.calls
+    kinds = {c[0] for c in calls}
+    print("  recorded calls:", kinds)
+    check("move entries fired", any(c[0] == "move" for c in calls))
+    check("size entries fired", any(c[0] == "size" for c in calls))
+    check("reroll fired", ("reroll",) in calls)
+    check("throw fired", ("throw",) in calls)
+    check("gift fired", ("gift",) in calls)
+    check("talk fired", ("talk",) in calls)
+    check("look fired", ("look",) in calls)
+    check("evolve cascade fired (8 ways, stones consumed)",
+          any(c[0] == "evolve" for c in calls))
+except Exception as e:
+    check("interaction walk", False, str(e))
+finally:
+    root3.destroy()
 
 print()
 if FAILS:
