@@ -575,14 +575,13 @@ class MoveEffect:
 #  Professor Oak's Lab — Starter selection
 # ═══════════════════════════════════════════════════════════════════════════════
 class StarterSelect:
-    """
-    Animated starter selection screen.
-    Eight cards (4x2) on a wooden lab table; click one to begin.
-    """
-    W, H      = 880, 760
-    SLOT_CX   = (140, 350, 560, 770)     # 4 columns
-    SLOT_CY   = (82, 430)                # 2 rows
-    CARD_H    = 258
+    """Carousel selection screen: left/right arrows flip through
+    the starters inside a big viewfinder card; Choose (or Enter)
+    confirms.  Keyboard: Left / Right / Return."""
+
+    W, H    = 560, 560
+    CARD    = (120, 96, 440, 440)     # the viewfinder frame
+    SHOTSCALE = 3                     # sprite scale inside the frame
 
     def __init__(self, root, cache: dict, lines: list, callback,
                  quit_on_close=True):
@@ -590,32 +589,33 @@ class StarterSelect:
         self.cache    = cache      # {(pid, shiny): (rights, lefts, w, h)}
         self.lines    = lines
         # key out the magenta sprite background and composite over
-        # the card colour for the selection screen
+        # the viewfinder colour, at the big display scale
         keyed = {}
         for (pid, shiny), v in self.cache.items():
             path = sprite_path(pid, shiny)
             if os.path.exists(path):
                 keyed[(pid, shiny)] = load_frames(
-                    path, scale=1.5, keyout_bg="#162412")
+                    path, scale=self.SHOTSCALE, keyout_bg="#162412")
         if keyed:
             self.cache = keyed
         self.callback = callback   # callback(line_idx: int)
         self.quit_on_close = quit_on_close
-        self.hover    = -1
+        self.hover    = None
         self.frame    = 0
         self.done     = False
+        self.sel      = 0
 
         # Static background stars / foliage dots
         self.stars = [
-            (random.randint(0, self.W), random.randint(0, 600),
+            (random.randint(0, self.W), random.randint(0, 560),
              random.choice(["#2D4E1F", "#3A6A2A", "#1E3A14", "#4A7A30"]))
             for _ in range(60)
         ]
 
         self.win = tk.Toplevel(root)
         self.win.title("EeveeMon — Choose your starter!")
-        self.win.resizable(True, True)   # freely resizable
-        self.win.minsize(480, 340)
+        self.win.resizable(True, True)
+        self.win.minsize(400, 400)
         self.win.protocol("WM_DELETE_WINDOW", self._quit)
 
         sw = self.win.winfo_screenwidth()
@@ -631,10 +631,13 @@ class StarterSelect:
         self._scl, self._ox, self._oy = 1.0, 0, 0
         self.c.bind("<Motion>",   self._on_motion)
         self.c.bind("<Button-1>", self._on_click)
+        self.win.bind("<Left>",  lambda e: self._flip(-1))
+        self.win.bind("<Right>", lambda e: self._flip(1))
+        self.win.bind("<Return>", lambda e: self._choose())
 
         self._tick()
 
-        # EEM_SHOT env hook: export the selection screen and exit
+        # EEM_SHOT env hook: export the screen and exit
         if os.environ.get("EEM_SHOT"):
             self.win.update_idletasks()
             def _shot():
@@ -669,12 +672,14 @@ class StarterSelect:
         oy = getattr(self, "_oy", 0)
         x = (e.x - ox) / scl
         y = (e.y - oy) / scl
-        for i in range(min(len(self.lines), 8)):
-            cx = self.SLOT_CX[i % 4]
-            cy = self.SLOT_CY[i // 4]
-            if (abs(x - cx) < 97 and cy < y < cy + self.CARD_H):
-                return i
-        return -1
+        if 24 <= x <= 96 and 220 <= y <= 360:
+            return "left"
+        if self.W - 96 <= x <= self.W - 24 and 220 <= y <= 360:
+            return "right"
+        if self.W // 2 - 90 <= x <= self.W // 2 + 90 \
+                and 496 <= y <= 548:
+            return "choose"
+        return None
 
     def _on_motion(self, e):
         self.hover = self._hit(e)
@@ -682,13 +687,27 @@ class StarterSelect:
     def _on_click(self, e):
         if self.done:
             return
-        i = self._hit(e)
-        if i >= 0:
-            self.done = True
-            self._flash(i)
+        z = self._hit(e)
+        if z == "left":
+            self._flip(-1)
+        elif z == "right":
+            self._flip(1)
+        elif z == "choose":
+            self._choose()
+
+    def _flip(self, d):
+        self.sel = (self.sel + d) % min(len(self.lines), 8)
+        self.frame = 0
+
+    def _choose(self):
+        if self.done:
+            return
+        self.done = True
+        self._flash(self.sel)
 
     def _flash(self, idx: int):
-        self.c.create_rectangle(0, 0, self.W, self.H, fill="#FFFFFF", outline="")
+        self.c.create_rectangle(0, 0, self.W, self.H, fill="#FFFFFF",
+                                outline="")
         self.win.update()
         self.win.after(110, lambda: self._finish(idx))
 
@@ -698,13 +717,11 @@ class StarterSelect:
 
     # ── Colour helper ─────────────────────────────────────────────────────────
     @staticmethod
-    def _dim(hex_col: str, factor: float = 0.4) -> str:
-        r = max(0, min(255, int(int(hex_col[1:3], 16) * factor)))
-        g = max(0, min(255, int(int(hex_col[3:5], 16) * factor)))
-        b = max(0, min(255, int(int(hex_col[5:7], 16) * factor)))
-        return f"#{r:02x}{g:02x}{b:02x}"
+    def _dim(hexcol: str, f: float):
+        h = hexcol.lstrip("#")
+        return "#" + "".join(f"{max(0, int(int(h[i:i+2], 16) * f)):02x}"
+                             for i in (0, 2, 4))
 
-    # ── Draw loop ─────────────────────────────────────────────────────────────
     def _tick(self):
         if self.done or not self.win.winfo_exists():
             return
@@ -713,105 +730,78 @@ class StarterSelect:
         c.delete("all")
 
         # Background
-        c.create_rectangle(0, 0, self.W, self.H, fill="#0E1F09", outline="")
+        c.create_rectangle(0, 0, self.W, self.H, fill="#0E1F09",
+                           outline="")
         for sx, sy, sc in self.stars:
-            c.create_oval(sx - 1, sy - 1, sx + 1, sy + 1, fill=sc, outline="")
+            c.create_oval(sx - 1, sy - 1, sx + 1, sy + 1, fill=sc,
+                          outline="")
 
-        # Wooden table: a thin footer strip BELOW both rows so
-        # the two rows share one clean backdrop (no planks
-        # behind the second row)
-        c.create_rectangle(0, 710, self.W, self.H, fill="#2D1505",
-                           outline="")
-        c.create_rectangle(0, 710, self.W, 722, fill="#4A2008",
-                           outline="")
-        c.create_rectangle(0, 722, self.W, 732, fill="#6B3510",
-                           outline="")
-        c.create_rectangle(0, 732, self.W, self.H, fill="#3D2008",
-                           outline="")
-        for gx in range(0, self.W, 58):
-            c.create_line(gx, 722, gx + 38, self.H, fill="#321A06",
-                          width=1)
-
-        # Title  (drop-shadow effect)
-        for dx, dy, col in ((2, 2, "#7A5800"), (0, 0, "#FFD700")):
-            c.create_text(self.W // 2 + dx, 27 + dy,
-                          text="BuddyMon",
-                          fill=col, font=("Consolas", 24, "bold"))
-        c.create_text(self.W // 2, 55,
+        # Title
+        c.create_text(self.W // 2, 34,
                       text="Choose your starter, trainer!",
                       fill="#A8C898", font=("Segoe UI", 12, "italic"))
 
-        # ── Cards ─────────────────────────────────────────────────────────────
-        for i, line in enumerate(self.lines[:8]):
-            cx = self.SLOT_CX[i % 4]
-            cy = self.SLOT_CY[i // 4]
-            ct, cb = cy, cy + self.CARD_H
-            col = line["color"]
-            hov = (i == self.hover)
+        line = self.lines[self.sel]
+        col = line["color"]
+        evo0 = line["evolutions"][0]
+        x0, y0, x1, y1 = self.CARD
+        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
 
-            # Outer glow when hovered
-            if hov:
-                for expand, bg_col in (
-                    (20, "#142010"), (14, "#1C3018"), (8, "#243820")
-                ):
-                    c.create_rectangle(
-                        cx - 80 - expand, ct - expand,
-                        cx + 80 + expand, cb + expand,
-                        fill=bg_col, outline="",
-                    )
+        # the viewfinder frame
+        if self.hover == "choose":
+            pass
+        c.create_rectangle(x0, y0, x1, y1, fill="#162412", outline="")
+        c.create_rectangle(x0, y0, x1, y1, fill="", outline=col,
+                           width=4)
+        # inner corners (camera viewfinder marks)
+        for (mx, my) in ((x0 + 14, y0 + 14), (x1 - 14, y0 + 14),
+                         (x0 + 14, y1 - 14), (x1 - 14, y1 - 14)):
+            c.create_rectangle(mx - 4, my - 4, mx + 4, my + 4,
+                               fill=col, outline="")
 
-            # Card body
-            # body colour = the keyout composite (#162412) in
-            # BOTH states: the sprites are composited over this
-            # exact colour, so no mismatch rectangle can appear
-            c.create_rectangle(cx - 95, ct, cx + 95, cb,
-                               fill="#162412", outline="")
+        # the sprite with bob
+        pid = evo0["id"]
+        if (pid, False) in self.cache:
+            frames_r, _, sw_, sh_ = self.cache[(pid, False)]
+            fidx = f % len(frames_r)
+            bob = int(math.sin(f * 0.12) * 6)
+            c.create_image(cx - sw_ // 2, cy - sh_ // 2 + bob - 20,
+                           anchor="nw", image=frames_r[fidx])
 
-            # Card border (type colour)
-            c.create_rectangle(cx - 95, ct, cx + 95, cb,
-                               fill="", outline=col if hov else self._dim(col, 0.55),
-                               width=3 if hov else 2)
+        # name + type + page indicator
+        c.create_text(cx, y1 - 44, text=evo0["name"], fill="#FFFFFF",
+                      font=("Segoe UI", 16, "bold"))
+        c.create_text(cx, y1 - 22, text=line["type"], fill=col,
+                      font=("Segoe UI", 10))
+        dots = "●" * self.sel + "○" * (min(len(self.lines), 8)
+                                       - self.sel - 1)
+        c.create_text(cx, y0 + 20, text=dots, fill="#4A6840",
+                      font=("Segoe UI", 11))
 
-            # Bottom type strip
-            strip = col if hov else self._dim(col, 0.6)
-            c.create_rectangle(cx - 95, cb - 46, cx + 95, cb,
-                               fill=strip, outline="")
+        # left / right arrows
+        for tag, tri, hov in (("left", (40, 290, 88, 250, 88, 330),
+                               self.hover == "left"),
+                              ("right", (self.W - 40, 290,
+                                         self.W - 88, 250,
+                                         self.W - 88, 330),
+                               self.hover == "right")):
+            c.create_polygon(*tri,
+                             fill="#C9A227" if hov else "#6B5A2E",
+                             outline="#F5C518" if hov else "#4A3F1E",
+                             width=2)
 
-            # Pokémon name
-            evo0 = line["evolutions"][0]
-            c.create_text(cx, cb - 30,
-                          text=evo0["name"],
-                          fill="#FFFFFF" if hov else "#CCCCCC",
-                          font=("Segoe UI", 10, "bold"))
+        # Choose button
+        bx0, bx1 = self.W // 2 - 90, self.W // 2 + 90
+        by0, by1 = 496, 548
+        hov = (self.hover == "choose")
+        c.create_rectangle(bx0, by0, bx1, by1,
+                           fill="#C9A227" if hov else "#6B5A2E",
+                           outline="#F5C518", width=2)
+        c.create_text(self.W // 2, (by0 + by1) // 2,
+                      text="Choose!", fill="#FFFFFF",
+                      font=("Segoe UI", 13, "bold"))
 
-            # Type label
-            c.create_text(cx, cb - 13,
-                          text=line["type"],
-                          fill="#FFFFFF",
-                          font=("Segoe UI", 8))
-
-            # Animated sprite with bob
-            pid = evo0["id"]
-            if (pid, False) in self.cache:
-                frames_r, _, sw_, sh_ = self.cache[(pid, False)]
-                fidx = f % len(frames_r)
-                bob  = int(math.sin(f * 0.12 + i * 2.1) * 6)
-                # Centre sprite in the Pokemon area (above strip)
-                sprite_cy = (ct + cb - 46) // 2
-                c.create_image(
-                    cx - sw_ // 2,
-                    sprite_cy - sh_ // 2 + bob,
-                    anchor="nw", image=frames_r[fidx],
-                )
-
-        # Footer hint on the table strip
-        c.create_text(self.W // 2, 736,
-                      text="Click a Pokémon to begin",
-                      fill="#E8C87A", font=("Segoe UI", 9))
-
-        # ── Free-resize: scale the whole scene to the current
-        # window size (content drawn at base coords, then scaled
-        # and centred; the backdrop is painted after the scale)
+        # ── Free-resize: scale the whole scene to the window ──
         cw = max(1, c.winfo_width())
         ch = max(1, c.winfo_height())
         scl = max(min(cw / self.W, ch / self.H), 0.5)
@@ -830,9 +820,7 @@ class StarterSelect:
         self.win.after(FRAME_MS, self._tick)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  Chat Bubble
-# ═══════════════════════════════════════════════════════════════════════════════
+
 class ChatBubble:
     """Speech bubble in the Pokemon-game style: the box appears
     pre-sized to the final message, the text types out character
@@ -1575,8 +1563,15 @@ class Buddy:
     def _quit_app(self):
         # destroy the root AFTER the menu has closed (destroying
         # from inside a posted menu's callback is unreliable on
-        # Tk -- the 'cannot close' bug)
-        self.root.after(60, self.root.destroy)
+        # Tk -- the 'cannot close' bug).  The os._exit fallback
+        # guarantees the process never lingers.
+        def _kill():
+            try:
+                self.root.destroy()
+            except tk.TclError:
+                pass
+            os._exit(0)
+        self.root.after(60, _kill)
 
     def _show_menu(self, e):
         try:    self._menu.tk_popup(e.x_root, e.y_root)
