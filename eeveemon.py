@@ -33,7 +33,9 @@ else:
 os.makedirs(DIR, exist_ok=True)
 
 TRANSPARENT  = "#FF00FF"
-TASKBAR_H    = 48
+MAC          = sys.platform == "darwin"
+TASKBAR_H    = 78 if MAC else 48   # Dock vs taskbar margin
+WINDOW_BG    = "systemTransparent" if MAC else TRANSPARENT
 GRAVITY      = 0.8
 WALK_SPEED   = 1.5
 FRAME_MS     = 50            # 20 fps
@@ -135,6 +137,42 @@ STARTER_LINES = [
             {"name": "Sky Uppercut", "fx": "dragon_rage"},
         ],
     },
+    {
+        "type": "Normal", "color": "#C9A227",
+        "evolutions": [
+            {"id": 52, "name": "Meowth", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Scratch",      "fx": "scratch"},
+            {"name": "Pay Day",      "fx": "bubble"},
+            {"name": "Bite",         "fx": "bite"},
+            {"name": "Fury Swipes",  "fx": "scratch"},
+        ],
+    },
+    {
+        "type": "Dragon", "color": "#E0354B",
+        "evolutions": [
+            {"id": 380, "name": "Latias", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Mist Ball",    "fx": "bubble"},
+            {"name": "Dragon Pulse", "fx": "dragon_rage"},
+            {"name": "Zen Headbutt", "fx": "scratch"},
+            {"name": "Psychic",      "fx": "solar_beam"},
+        ],
+    },
+    {
+        "type": "Electric", "color": "#F5C518",
+        "evolutions": [
+            {"id": 25, "name": "Pikachu", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Thunderbolt",  "fx": "dragon_rage"},
+            {"name": "Quick Attack", "fx": "scratch"},
+            {"name": "Iron Tail",    "fx": "bite"},
+            {"name": "Electro Ball", "fx": "bubble"},
+        ],
+    },
 ]
 
 ALL_IDS = [evo["id"] for line in STARTER_LINES for evo in line["evolutions"]]
@@ -162,6 +200,9 @@ PERSONALITIES = {
     "Torchic":   "You are Torchic, a tiny Fire-type chick Pokémon living as a desktop buddy. You are fluffy, warm, peppy, and you chirp a lot. Deep down you burn with ambition.",
     "Combusken": "You are Combusken, a young Fire/Fighting Pokémon living as a desktop buddy. You are scrappy, competitive, and always shadow-boxing. You kick first, ask later.",
     "Blaziken":  "You are Blaziken, a proud Fire/Fighting Pokémon living as a desktop buddy. You are a fiery martial artist -- hot-blooded, honourable, and you call your trainer 'Coach'.",
+    "Meowth":    "You are Meowth, a street-smart Normal-type Pokémon living as a desktop buddy. You are a little greedy, love shiny coins, and talk like a scrappy city cat. Pay Day is your signature move.",
+    "Latias":    "You are Latias, a gentle Dragon/Psychic legendary Pokémon living as a desktop buddy. You are shy at first but warm and deeply loyal once you trust your trainer. You can turn invisible when startled.",
+    "Pikachu":   "You are Pikachu, the most famous Electric-type Pokémon in the world, living as a desktop buddy. You are cheerful, loyal, and say 'Pika!' a lot. You love ketchup.",
 }
 
 
@@ -205,16 +246,27 @@ def load_frames(path: str, scale: int = SCALE, keyout_bg=None):
     def bake(frame: Image.Image) -> Image.Image:
         base = Image.new("RGBA", frame.size, (255, 0, 255, 255))
         fr   = frame.convert("RGBA")
-        if keyout_bg is None:
-            # taskbar path: snap near-magenta anti-aliased edges to
-            # the exact colour key so no pink fringe survives
+        if keyout_bg is None and not MAC:
+            # Windows taskbar path: snap near-magenta anti-aliased
+            # edges to the exact colour key so no pink fringe survives
             px = fr.load()
             for yy in range(fr.height):
                 for xx in range(fr.width):
                     r, g, b, a = px[xx, yy]
                     if a > 0 and r > 200 and g < 100 and b > 200:
                         px[xx, yy] = (255, 0, 255, a)
-        base.paste(fr, mask=fr.split()[3])
+        if MAC and keyout_bg is None:
+            # macOS path: alpha keyout, no bake -- the window's
+            # -transparent attribute shows RGBA alpha directly
+            px = fr.load()
+            for yy in range(fr.height):
+                for xx in range(fr.width):
+                    r, g, b, a = px[xx, yy]
+                    if a > 0 and r > 200 and g < 100 and b > 200:
+                        px[xx, yy] = (0, 0, 0, 0)
+            base = fr
+        else:
+            base.paste(fr, mask=fr.split()[3])
         if keyout_bg is not None:
             px = base.load()
             for yy in range(base.height):
@@ -521,12 +573,12 @@ class MoveEffect:
 class StarterSelect:
     """
     Animated starter selection screen.
-    Three cards on a wooden lab table; click one to begin.
+    Eight cards (4x2) on a wooden lab table; click one to begin.
     """
-    W, H      = 1090, 430
-    CARD_TOP  = 82
-    CARD_BOT  = 340
-    SLOT_CX   = (120, 340, 560, 780, 1000)
+    W, H      = 880, 760
+    SLOT_CX   = (140, 350, 560, 770)     # 4 columns
+    SLOT_CY   = (82, 430)                # 2 rows
+    CARD_H    = 258
 
     def __init__(self, root, cache: dict, lines: list, callback):
         self.root     = root
@@ -549,7 +601,7 @@ class StarterSelect:
 
         # Static background stars / foliage dots
         self.stars = [
-            (random.randint(0, self.W), random.randint(0, 270),
+            (random.randint(0, self.W), random.randint(0, 600),
              random.choice(["#2D4E1F", "#3A6A2A", "#1E3A14", "#4A7A30"]))
             for _ in range(60)
         ]
@@ -574,26 +626,41 @@ class StarterSelect:
 
         self._tick()
 
+        # EEM_SHOT env hook: export the selection screen and exit
+        if os.environ.get("EEM_SHOT"):
+            self.win.update_idletasks()
+            def _shot():
+                from PIL import ImageGrab
+                x, y = self.win.winfo_rootx(), self.win.winfo_rooty()
+                w, h = self.win.winfo_width(), self.win.winfo_height()
+                ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(
+                    os.environ["EEM_SHOT"])
+                self.win.destroy()
+            self.win.after(2500, _shot)
+
     # ── Events ────────────────────────────────────────────────────────────────
     @staticmethod
     def _quit():
         sys.exit(0)
 
+    def _hit(self, e):
+        for i in range(min(len(self.lines), 8)):
+            cx = self.SLOT_CX[i % 4]
+            cy = self.SLOT_CY[i // 4]
+            if (abs(e.x - cx) < 82 and cy < e.y < cy + self.CARD_H):
+                return i
+        return -1
+
     def _on_motion(self, e):
-        new = -1
-        for i, cx in enumerate(self.SLOT_CX):
-            if abs(e.x - cx) < 82 and self.CARD_TOP < e.y < self.CARD_BOT:
-                new = i; break
-        self.hover = new
+        self.hover = self._hit(e)
 
     def _on_click(self, e):
         if self.done:
             return
-        for i, cx in enumerate(self.SLOT_CX):
-            if abs(e.x - cx) < 82 and self.CARD_TOP < e.y < self.CARD_BOT:
-                self.done = True
-                self._flash(i)
-                return
+        i = self._hit(e)
+        if i >= 0:
+            self.done = True
+            self._flash(i)
 
     def _flash(self, idx: int):
         self.c.create_rectangle(0, 0, self.W, self.H, fill="#FFFFFF", outline="")
@@ -643,9 +710,10 @@ class StarterSelect:
                       fill="#A8C898", font=("Segoe UI", 12, "italic"))
 
         # ── Cards ─────────────────────────────────────────────────────────────
-        ct, cb = self.CARD_TOP, self.CARD_BOT
-
-        for i, (cx, line) in enumerate(zip(self.SLOT_CX, self.lines)):
+        for i, line in enumerate(self.lines[:8]):
+            cx = self.SLOT_CX[i % 4]
+            cy = self.SLOT_CY[i // 4]
+            ct, cb = cy, cy + self.CARD_H
             col = line["color"]
             hov = (i == self.hover)
 
@@ -729,8 +797,12 @@ class ChatBubble:
         self.win.withdraw()
         self.win.overrideredirect(True)
         self.win.attributes("-topmost", True)
-        self.win.attributes("-transparentcolor", TRANSPARENT)
-        self.win.configure(bg=TRANSPARENT)
+        if MAC:
+            try: self.win.wm_attributes("-transparent", True)
+            except tk.TclError: pass
+        else:
+            self.win.attributes("-transparentcolor", TRANSPARENT)
+        self.win.configure(bg=WINDOW_BG)
         for attr in ("-toolwindow",):
             try: self.win.wm_attributes(attr, True)
             except tk.TclError: pass
@@ -1067,8 +1139,12 @@ class Buddy:
         # ── Configure root as the buddy window ────────────────────────────────
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.attributes("-transparentcolor", TRANSPARENT)
-        self.root.configure(bg=TRANSPARENT)
+        if MAC:
+            try: self.root.wm_attributes("-transparent", True)
+            except tk.TclError: pass
+        else:
+            self.root.attributes("-transparentcolor", TRANSPARENT)
+        self.root.configure(bg=WINDOW_BG)
         try: self.root.wm_attributes("-toolwindow", True)
         except tk.TclError: pass
         self.root.deiconify()
@@ -1098,6 +1174,8 @@ class Buddy:
 
         # Start AI companion (prompts for API key if needed)
         self.agent = AgentMind(self)
+        self._build_menu()   # rebuild: Talk/Look enable when the
+                             # agent has a key
         self.root.after(4000, self.agent.greet)  # greet after landing
 
         self._tick()
