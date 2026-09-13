@@ -11,7 +11,8 @@ OUT.mkdir(exist_ok=True)
 
 IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9,          # Kanto starters
        133, 134, 135, 136, 196, 197, 470, 471, 700,   # Eevee family
-       255, 256, 257]                       # Torchic line
+       255, 256, 257,                       # Torchic line
+       52]                                   # Meowth
 BASE = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
         "sprites/pokemon/versions/generation-v/black-white/animated/{}.gif")
 SHINY = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
