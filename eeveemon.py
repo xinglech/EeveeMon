@@ -793,15 +793,21 @@ class StarterSelect:
 #  Chat Bubble
 # ═══════════════════════════════════════════════════════════════════════════════
 class ChatBubble:
-    """Speech bubble that appears above/below the sprite with the AI response."""
-    W    = 290
-    PAD  = 14
-    TAIL = 14
-    LIFE = 8000   # ms before auto-dismiss
+    """Speech bubble in the Pokemon-game style: the box appears
+    pre-sized to the final message, the text types out character
+    by character, and the whole bubble follows the sprite as it
+    walks (tail tracks the sprite's centre x)."""
+    PAD       = 14
+    TAIL      = 14
+    LIFE      = 9000    # ms before auto-dismiss
+    CHAR_MS   = 26      # typewriter cadence per character
+    PUNCT_MS  = 240     # pause after sentence punctuation
+    FOLLOW_MS = 120     # position-refresh cadence
 
-    def __init__(self, root, sx: int, sy: int, sw: int, sh: int,
-                 name: str, col: str, text: str):
-        wrapped = textwrap.fill(text, width=32)
+    def __init__(self, root, buddy, name, col, text):
+        self.root  = root
+        self.buddy = buddy
+        self.full_text = textwrap.fill(text, width=34)
 
         self.win = tk.Toplevel(root)
         self.win.withdraw()
@@ -817,68 +823,117 @@ class ChatBubble:
             try: self.win.wm_attributes(attr, True)
             except tk.TclError: pass
 
-        # Measure wrapped text height with a temp label
-        _m = tk.Label(self.win, text=wrapped, font=("Segoe UI", 10),
-                      wraplength=self.W - self.PAD * 2, justify="left")
+        # pre-size the bubble to the FINAL text: measure the
+        # wrapped text's natural width and height, then adapt the
+        # bubble to it (the game-dialog feel: box first, text
+        # types into it)
+        _m = tk.Label(self.win, text=self.full_text,
+                      font=("Segoe UI", 10), wraplength=340,
+                      justify="left")
         _m.pack(); self.win.update_idletasks()
-        th = _m.winfo_reqheight(); _m.destroy()
+        th = _m.winfo_reqheight()
+        tw = _m.winfo_reqwidth()
+        _m.destroy()
 
-        name_h  = 20
-        body_h  = self.PAD + name_h + 6 + th + self.PAD
-        total_h = body_h + self.TAIL
+        name_h   = 20
+        self.W   = max(120, min(360, tw + 2 * self.PAD))
+        body_h   = self.PAD + name_h + 6 + th + self.PAD
+        self.total_h = body_h + self.TAIL
 
-        scr_w = root.winfo_screenwidth()
-        bx    = max(8, min(sx + sw // 2 - self.W // 2, scr_w - self.W - 8))
-        above = (sy - total_h - 6) > 8
-        by    = (sy - total_h - 6) if above else (sy + sh + 6)
-
-        self.win.geometry(f"{self.W}x{total_h}+{bx}+{by}")
-        c = tk.Canvas(self.win, width=self.W, height=total_h,
-                      bg=TRANSPARENT, highlightthickness=0)
-        c.pack()
-
-        tx = self.W // 2   # tail x-centre
-
-        if above:
-            # Bubble body, tail below
-            c.create_rectangle(0, 0, self.W, body_h, fill=col, outline="")
-            c.create_rectangle(2, 2, self.W - 2, body_h - 2, fill="#1E1E20", outline="")
-            c.create_polygon(tx - 10, body_h, tx + 10, body_h, tx, total_h,
-                             fill=col, outline="")
-            text_y0 = self.PAD
-        else:
-            # Tail above, bubble body below
-            c.create_polygon(tx - 10, 0, tx + 10, 0, tx, self.TAIL,
-                             fill=col, outline="")
-            c.create_rectangle(0, self.TAIL, self.W, total_h, fill=col, outline="")
-            c.create_rectangle(2, self.TAIL + 2, self.W - 2, total_h - 2,
-                               fill="#1E1E20", outline="")
-            text_y0 = self.TAIL + self.PAD
-
-        # Name
-        c.create_text(self.PAD, text_y0, text=name, fill=col,
-                      font=("Segoe UI", 9, "bold"), anchor="nw")
-        # Divider
-        c.create_line(self.PAD, text_y0 + name_h + 1,
-                      self.W - self.PAD, text_y0 + name_h + 1,
-                      fill=col, width=1)
-        # Message
-        c.create_text(self.PAD, text_y0 + name_h + 8, text=wrapped,
-                      fill="#F0F0F0", font=("Segoe UI", 10),
-                      anchor="nw", width=self.W - self.PAD * 2, justify=tk.LEFT)
+        # bubble above the sprite; below when the sprite sits
+        # near the screen top (chosen once, stable for this bubble)
+        self.above = (int(buddy.y) - self.total_h - 6) > 8
+        self.c = tk.Canvas(self.win, width=self.W,
+                           height=self.total_h,
+                           bg=WINDOW_BG, highlightthickness=0)
+        self.c.pack()
+        self._draw_shape(name, col, body_h, name_h)
+        self._reposition()
 
         self.win.bind("<Button-1>", lambda e: self._dismiss())
         self.win.deiconify()
+        self._ti = 0
+        self._type()
+        self._follow()
         self.win.after(self.LIFE, self._dismiss)
+
+    def _draw_shape(self, name, col, body_h, name_h):
+        tx = self.W // 2
+        if self.above:
+            self.c.create_rectangle(0, 0, self.W, body_h,
+                                    fill=col, outline="")
+            self.c.create_rectangle(2, 2, self.W - 2, body_h - 2,
+                                    fill="#1E1E20", outline="")
+            self.tail_item = self.c.create_polygon(
+                tx - 10, body_h, tx + 10, body_h, tx, self.total_h,
+                fill=col, outline="")
+            text_y0 = self.PAD
+        else:
+            self.tail_item = self.c.create_polygon(
+                tx - 10, 0, tx + 10, 0, tx, self.TAIL,
+                fill=col, outline="")
+            self.c.create_rectangle(0, self.TAIL, self.W,
+                                    self.total_h, fill=col,
+                                    outline="")
+            self.c.create_rectangle(2, self.TAIL + 2, self.W - 2,
+                                    self.total_h - 2,
+                                    fill="#1E1E20", outline="")
+            text_y0 = self.TAIL + self.PAD
+
+        self.c.create_text(self.PAD, text_y0, text=name, fill=col,
+                           font=("Segoe UI", 9, "bold"),
+                           anchor="nw")
+        self.c.create_line(self.PAD, text_y0 + name_h + 1,
+                           self.W - self.PAD,
+                           text_y0 + name_h + 1, fill=col, width=1)
+        # the message: starts empty, fills in via the typewriter
+        self.msg_item = self.c.create_text(
+            self.PAD, text_y0 + name_h + 8, text="",
+            fill="#F0F0F0", font=("Segoe UI", 10), anchor="nw",
+            width=self.W - self.PAD * 2, justify=tk.LEFT)
+
+    def _type(self):
+        n = self._ti
+        if n < len(self.full_text):
+            ch = self.full_text[n]
+            self._ti = n + 1
+            self.c.itemconfigure(self.msg_item,
+                                 text=self.full_text[:n + 1])
+            delay = self.PUNCT_MS if ch in ".!?。" else self.CHAR_MS
+            self.win.after(delay, self._type)
+
+    def _follow(self):
+        try:
+            self._reposition()
+            self.win.after(self.FOLLOW_MS, self._follow)
+        except tk.TclError:
+            pass
+
+    def _reposition(self):
+        b  = self.buddy
+        sx, sy = int(b.x), int(b.y)
+        sw, sh = int(b.sw), int(b.sh)
+        scr_w = self.root.winfo_screenwidth()
+        bx = max(8, min(sx + sw // 2 - self.W // 2,
+                        scr_w - self.W - 8))
+        by = ((sy - self.total_h - 6)
+              if self.above else (sy + sh + 6))
+        self.win.geometry(f"{self.W}x{self.total_h}+{bx}+{by}")
+        # the tail tracks the sprite's centre x inside the bubble
+        tx = max(12, min(self.W - 12, sx + sw // 2 - bx))
+        if self.above:
+            self.c.coords(self.tail_item, tx - 10, self.total_h - self.TAIL,
+                          tx + 10, self.total_h - self.TAIL,
+                          tx, self.total_h)
+        else:
+            self.c.coords(self.tail_item, tx - 10, 0, tx + 10, 0,
+                          tx, self.TAIL)
 
     def _dismiss(self):
         try: self.win.destroy()
         except tk.TclError: pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  Agent Mind — Claude-powered companion
-# ═══════════════════════════════════════════════════════════════════════════════
 class AgentMind:
     """Gives the Pokémon buddy a personality and screen awareness via Claude."""
 
@@ -1075,9 +1130,7 @@ class AgentMind:
     def _show(self, text: str):
         line = STARTER_LINES[self.buddy.line_idx]
         evo  = line["evolutions"][self.buddy.evo_stage]
-        ChatBubble(self.buddy.root,
-                   int(self.buddy.x), int(self.buddy.y),
-                   self.buddy.sw, self.buddy.sh,
+        ChatBubble(self.buddy.root, self.buddy,
                    evo["name"], line["color"], text)
 
     def _schedule_passive(self):
