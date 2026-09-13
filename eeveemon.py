@@ -350,8 +350,12 @@ class MoveEffect:
         self.win = tk.Toplevel(root)
         self.win.overrideredirect(True)
         self.win.attributes("-topmost", True)
-        self.win.attributes("-transparentcolor", TRANSPARENT)
-        self.win.configure(bg=TRANSPARENT)
+        if MAC:
+            try: self.win.wm_attributes("-transparent", True)
+            except tk.TclError: pass
+        else:
+            self.win.attributes("-transparentcolor", TRANSPARENT)
+        self.win.configure(bg=WINDOW_BG)
         for attr in ("-toolwindow", "-disabled"):
             try: self.win.wm_attributes(attr, True)
             except tk.TclError: pass
@@ -1552,7 +1556,11 @@ class Buddy:
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def _throw(self):
-        self.vy = -16.0; self.state = "falling"
+        # a little hop + a burst of bubbles (the visible fun part)
+        self.vy = -16.0
+        self.state = "falling"
+        MoveEffect(self.root, int(self.x), int(self.y),
+                   self.sw, self.sh, "bubble", self.facing)
 
     def _start_walk(self):
         self.state     = "walk"
