@@ -28,7 +28,7 @@ entirely controlled from its right-click menu.
 
 ## Features
 
-**Roster** — six starter cards on the selection screen:
+**Roster** — eight starter cards (4×2 grid) on the selection screen:
 
 | Line | Type | Evolution |
 |---|---|---|
@@ -38,6 +38,8 @@ entirely controlled from its right-click menu.
 | **Eevee** | **Multi** | Eevee → any of the 8 Eeveelutions (branching) |
 | **Torchic** | Fighting | Torchic → Combusken → Blaziken |
 | **Meowth** | Normal | none (single form) |
+| **Latias** | Dragon | none (single form) |
+| **Pikachu** | Electric | none (single form) |
 
 **Branching evolution** — Eevee's right-click *Evolve* menu offers all eight
 Eeveelutions, each with its canonical method displayed and enforced:
@@ -179,7 +181,7 @@ rather than sharing code; ideas are ported between them as features.
 |---|---|---|---|---|
 | Stack | Python + Tkinter | Python + Tkinter | C# / .NET 8 WPF | Python + PySide6 |
 | Scope | Taskbar pet | Taskbar pet | Full Tamagotchi | Shiny-hunting game |
-| Roster | 6 lines incl. the 8-way Eevee branch | 3 Kanto lines | All 151 Gen-1 | Encounters, Gen 1–5 |
+| Roster | 8 lines incl. the 8-way Eevee branch | 3 Kanto lines | All 151 Gen-1 | Encounters, Gen 1–5 |
 | Evolution | Branching + stones (real economy) | Linear 3-stage | Needs/level-based, full life cycle | n/a |
 | Extras | Multi-provider AI chat | Optional AI chat | Needs, economy, minigames, weather layer | Encounter counters, collection |
 | Status | This project | Upstream (modded here) | Third-party; forked as reference | Third-party; forked as reference |
