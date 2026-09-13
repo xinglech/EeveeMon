@@ -584,7 +584,8 @@ class StarterSelect:
     SLOT_CY   = (82, 430)                # 2 rows
     CARD_H    = 258
 
-    def __init__(self, root, cache: dict, lines: list, callback):
+    def __init__(self, root, cache: dict, lines: list, callback,
+                 quit_on_close=True):
         self.root     = root
         self.cache    = cache      # {(pid, shiny): (rights, lefts, w, h)}
         self.lines    = lines
@@ -599,6 +600,7 @@ class StarterSelect:
         if keyed:
             self.cache = keyed
         self.callback = callback   # callback(line_idx: int)
+        self.quit_on_close = quit_on_close
         self.hover    = -1
         self.frame    = 0
         self.done     = False
@@ -651,9 +653,11 @@ class StarterSelect:
             self.win.after(6000, _shot)
 
     # ── Events ────────────────────────────────────────────────────────────────
-    @staticmethod
-    def _quit():
-        sys.exit(0)
+    def _quit(self):
+        if self.quit_on_close:
+            sys.exit(0)
+        self.done = True
+        self.win.destroy()
 
     def _hit(self, e):
         for i in range(min(len(self.lines), 8)):
@@ -1409,6 +1413,16 @@ class Buddy:
         w.after(120, w.destroy)
 
     # ── Starter line change ────────────────────────────────────────────────────
+    def _open_select(self):
+        """Re-open the animated selection screen (menu option)."""
+        # reduce to (pid, shiny) keys -- the StarterSelect cache
+        # format (mirrors the startup _select_cache build)
+        select_cache = {(pid, shiny): v
+                        for (pid, shiny, sc), v in self._cache.items()
+                        if sc == SCALE}
+        StarterSelect(self.root, select_cache, STARTER_LINES,
+                      self._change_line, quit_on_close=False)
+
     def _change_line(self, idx: int):
         self.line_idx  = idx
         self.evo_stage = 0
@@ -1488,6 +1502,8 @@ class Buddy:
                 command=lambda idx=i: self._change_line(idx),
             )
         m.add_cascade(label="Change Starter", menu=sub_s)
+        m.add_command(label="选择界面 (Start Menu)",
+                      command=self._open_select)
 
         # Size
         sub_z = tk.Menu(m, tearoff=0, font=("Segoe UI", 9))
