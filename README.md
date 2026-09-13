@@ -112,6 +112,7 @@ Everything is reachable from the pet's right-click menu:
 | Random stone on a 10-min cooldown | Gift 进化石 |
 | Particle-effect moves | Use Move |
 | Switch starter line | Change Starter |
+| Re-open the animated selection screen (resizable) | 选择界面 (Start Menu) |
 | 50% – 300% size | Change Size |
 | Re-roll the 1/100 shiny | Reroll Shiny |
 | Chat with the pet | Talk to Me |
