@@ -1,12 +1,12 @@
 # EeveeMon
 
-A Gen V animated Pokémon desktop pet for Windows, built as a feature-rich
+A Gen V animated Pokémon desktop pet for **Windows and macOS**, built as a feature-rich
 mod of [BuddyMon](https://github.com/hasturah/buddymon). EeveeMon adds the
 **Eevee family** with a real 8-way branching stone evolution system, the
 **Torchic → Combusken → Blaziken** line, and an optional AI chat companion
 supporting multiple mainstream LLM providers.
 
-The pet lives on your taskbar, walks around with gravity physics, and is
+The pet lives on your taskbar (or above the Dock on macOS), walks around with gravity physics, and is
 entirely controlled from its right-click menu.
 
 ![Selection screen](selection_screen.png)
