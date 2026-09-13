@@ -596,7 +596,7 @@ class StarterSelect:
             path = sprite_path(pid, shiny)
             if os.path.exists(path):
                 keyed[(pid, shiny)] = load_frames(
-                    path, scale=SCALE, keyout_bg="#162412")
+                    path, scale=1.5, keyout_bg="#162412")
         if keyed:
             self.cache = keyed
         self.callback = callback   # callback(line_idx: int)
@@ -652,6 +652,8 @@ class StarterSelect:
                            int((y + h) * scale))).save(
                     os.environ["EEM_SHOT"])
                 self.win.destroy()
+            if os.environ.get("EEM_SHOT_W"):
+                self.win.geometry(os.environ["EEM_SHOT_W"])
             self.win.after(6000, _shot)
 
     # ── Events ────────────────────────────────────────────────────────────────
@@ -715,13 +717,20 @@ class StarterSelect:
         for sx, sy, sc in self.stars:
             c.create_oval(sx - 1, sy - 1, sx + 1, sy + 1, fill=sc, outline="")
 
-        # Wooden table
-        c.create_rectangle(0, 355, self.W, self.H,  fill="#2D1505", outline="")
-        c.create_rectangle(0, 355, self.W, 369,      fill="#4A2008", outline="")
-        c.create_rectangle(0, 369, self.W, 380,      fill="#6B3510", outline="")
-        c.create_rectangle(0, 380, self.W, self.H,  fill="#3D2008", outline="")
+        # Wooden table: a thin footer strip BELOW both rows so
+        # the two rows share one clean backdrop (no planks
+        # behind the second row)
+        c.create_rectangle(0, 710, self.W, self.H, fill="#2D1505",
+                           outline="")
+        c.create_rectangle(0, 710, self.W, 722, fill="#4A2008",
+                           outline="")
+        c.create_rectangle(0, 722, self.W, 732, fill="#6B3510",
+                           outline="")
+        c.create_rectangle(0, 732, self.W, self.H, fill="#3D2008",
+                           outline="")
         for gx in range(0, self.W, 58):
-            c.create_line(gx, 369, gx + 38, self.H, fill="#321A06", width=1)
+            c.create_line(gx, 722, gx + 38, self.H, fill="#321A06",
+                          width=1)
 
         # Title  (drop-shadow effect)
         for dx, dy, col in ((2, 2, "#7A5800"), (0, 0, "#FFD700")):
@@ -795,17 +804,17 @@ class StarterSelect:
                     anchor="nw", image=frames_r[fidx],
                 )
 
-        # Footer hint
-        c.create_text(self.W // 2, self.H - 10,
+        # Footer hint on the table strip
+        c.create_text(self.W // 2, 736,
                       text="Click a Pokémon to begin",
-                      fill="#4A6840", font=("Segoe UI", 9))
+                      fill="#E8C87A", font=("Segoe UI", 9))
 
         # ── Free-resize: scale the whole scene to the current
         # window size (content drawn at base coords, then scaled
         # and centred; the backdrop is painted after the scale)
         cw = max(1, c.winfo_width())
         ch = max(1, c.winfo_height())
-        scl = min(cw / self.W, ch / self.H)
+        scl = max(min(cw / self.W, ch / self.H), 0.5)
         if abs(scl - 1.0) > 0.001:
             c.scale("all", 0, 0, scl, scl)
         ox = (cw - self.W * scl) / 2
@@ -955,6 +964,11 @@ class ChatBubble:
         by = ((sy - self.total_h - 6)
               if self.above else (sy + sh + 6))
         self.win.geometry(f"{self.W}x{self.total_h}+{bx}+{by}")
+        try:
+            self.win.attributes("-topmost", True)
+            self.win.lift()
+        except tk.TclError:
+            pass
         # the tail tracks the sprite's centre x inside the bubble
         tx = max(12, min(self.W - 12, sx + sw // 2 - bx))
         if self.above:
@@ -1603,13 +1617,21 @@ class Buddy:
                    self.sw, self.sh, "bubble", self.facing)
 
     def _start_walk(self):
-        self.state     = "walk"
-        self.facing    = random.choice([-1, 1])
-        self.action_cd = random.randint(80, 200)
+        self.state = "walk"
+        # walk TOWARD the screen centre (no moonwalking away):
+        # facing follows the movement direction
+        centre = self.scr_w / 2
+        if self.x > centre + 60:
+            self.facing = -1
+        elif self.x < centre - 60:
+            self.facing = 1
+        else:
+            self.facing = random.choice([-1, 1])
+        self.action_cd = random.randint(50, 110)   # short walks
 
     def _start_idle(self):
         self.state     = "grounded"
-        self.action_cd = random.randint(60, 160)
+        self.action_cd = random.randint(240, 480)  # mostly quiet
 
     # ── Main loop ─────────────────────────────────────────────────────────────
     def _tick(self):
@@ -1617,6 +1639,15 @@ class Buddy:
             self._physics()
             self._behaviour()
         self._render()
+        # re-assert always-on-top: new windows (browsers, video
+        # players) can steal the topmost slot
+        self._tick_n = getattr(self, "_tick_n", 0) + 1
+        if self._tick_n % 40 == 0:
+            try:
+                self.root.attributes("-topmost", True)
+                self.root.lift()
+            except tk.TclError:
+                pass
         self.root.after(FRAME_MS, self._tick)
 
     def _physics(self):
@@ -1638,7 +1669,7 @@ class Buddy:
         if self.state == "falling": return
         self.action_cd -= 1
         if self.action_cd <= 0:
-            if random.random() < 0.6: self._start_walk()
+            if random.random() < 0.2: self._start_walk()   # mostly idle
             else: self._start_idle()
 
     def _render(self):
