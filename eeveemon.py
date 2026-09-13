@@ -21,7 +21,7 @@ except ImportError:
     from PIL import Image, ImageTk
 
 import tkinter as tk
-import urllib.request, os, sys, time, random, math, threading, base64, io, textwrap, json
+import urllib.request, os, sys, time, random, math, threading, base64, io, textwrap, json, queue
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Config
@@ -893,6 +893,8 @@ class ChatBubble:
             width=self.W - self.PAD * 2, justify=tk.LEFT)
 
     def _type(self):
+        if getattr(self, "_dead", False):
+            return
         n = self._ti
         if n < len(self.full_text):
             ch = self.full_text[n]
@@ -903,6 +905,8 @@ class ChatBubble:
             self.win.after(delay, self._type)
 
     def _follow(self):
+        if getattr(self, "_dead", False):
+            return
         try:
             self._reposition()
             self.win.after(self.FOLLOW_MS, self._follow)
@@ -930,6 +934,7 @@ class ChatBubble:
                           tx, self.TAIL)
 
     def _dismiss(self):
+        self._dead = True
         try: self.win.destroy()
         except tk.TclError: pass
 
@@ -942,6 +947,10 @@ class AgentMind:
     def __init__(self, buddy):
         self.buddy   = buddy
         self._client = None
+        # thread-safe inbox: worker threads never touch Tk
+        # directly; the main loop drains this queue instead
+        self._inbox = queue.Queue()
+        self.buddy.root.after(250, self._drain)
         self._setup()
 
     def _app_dir(self) -> str:
@@ -1106,8 +1115,9 @@ class AgentMind:
                     body = json.loads(r.read().decode("utf-8"))
                 text = body["choices"][0]["message"][
                     "content"].strip()
-            self.buddy.root.after(0, lambda: self._show(text))
+            self._inbox.put(("say", text))
         except Exception as exc:
+            self._inbox.put(("err", str(exc)[:80]))
             print(f"[AgentMind] {exc}", flush=True)
 
     def _look_thread(self):
@@ -1121,11 +1131,25 @@ class AgentMind:
 
             # deepseek-chat is text-only: no vision payload; fall
             # back to an in-character guess about the screen
-            self.buddy.root.after(0, lambda: self._show(
+            self._inbox.put(("say",
                 "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。）"))
             return
         except Exception as exc:
             print(f"[AgentMind look] {exc}", flush=True)
+
+    def _drain(self):
+        try:
+            while True:
+                kind, text = self._inbox.get_nowait()
+                if kind == "err":
+                    text = f"（AI 服务连接失败：{text}）"
+                self._show(text)
+        except queue.Empty:
+            pass
+        try:
+            self.buddy.root.after(250, self._drain)
+        except tk.TclError:
+            pass
 
     def _show(self, text: str):
         line = STARTER_LINES[self.buddy.line_idx]
