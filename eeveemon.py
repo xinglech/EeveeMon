@@ -631,12 +631,20 @@ class StarterSelect:
             self.win.update_idletasks()
             def _shot():
                 from PIL import ImageGrab
-                x, y = self.win.winfo_rootx(), self.win.winfo_rooty()
-                w, h = self.win.winfo_width(), self.win.winfo_height()
-                ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(
+                self.win.lift()
+                self.win.attributes("-topmost", True)
+                self.c.update_idletasks()
+                c = self.c
+                x, y = c.winfo_rootx(), c.winfo_rooty()
+                w, h = c.winfo_width(), c.winfo_height()
+                full = ImageGrab.grab()
+                scale = full.width / self.win.winfo_screenwidth()
+                full.crop((int(x * scale), int(y * scale),
+                           int((x + w) * scale),
+                           int((y + h) * scale))).save(
                     os.environ["EEM_SHOT"])
                 self.win.destroy()
-            self.win.after(2500, _shot)
+            self.win.after(6000, _shot)
 
     # ── Events ────────────────────────────────────────────────────────────────
     @staticmethod
@@ -647,7 +655,7 @@ class StarterSelect:
         for i in range(min(len(self.lines), 8)):
             cx = self.SLOT_CX[i % 4]
             cy = self.SLOT_CY[i // 4]
-            if (abs(e.x - cx) < 82 and cy < e.y < cy + self.CARD_H):
+            if (abs(e.x - cx) < 97 and cy < e.y < cy + self.CARD_H):
                 return i
         return -1
 
@@ -729,18 +737,20 @@ class StarterSelect:
                     )
 
             # Card body
-            c.create_rectangle(cx - 80, ct, cx + 80, cb,
-                               fill="#1A3015" if hov else "#131E0F",
-                               outline="")
+            # body colour = the keyout composite (#162412) in
+            # BOTH states: the sprites are composited over this
+            # exact colour, so no mismatch rectangle can appear
+            c.create_rectangle(cx - 95, ct, cx + 95, cb,
+                               fill="#162412", outline="")
 
             # Card border (type colour)
-            c.create_rectangle(cx - 80, ct, cx + 80, cb,
+            c.create_rectangle(cx - 95, ct, cx + 95, cb,
                                fill="", outline=col if hov else self._dim(col, 0.55),
                                width=3 if hov else 2)
 
             # Bottom type strip
             strip = col if hov else self._dim(col, 0.6)
-            c.create_rectangle(cx - 80, cb - 46, cx + 80, cb,
+            c.create_rectangle(cx - 95, cb - 46, cx + 95, cb,
                                fill=strip, outline="")
 
             # Pokémon name
