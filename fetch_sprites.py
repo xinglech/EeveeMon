@@ -12,7 +12,9 @@ OUT.mkdir(exist_ok=True)
 IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9,          # Kanto starters
        133, 134, 135, 136, 196, 197, 470, 471, 700,   # Eevee family
        255, 256, 257,                       # Torchic line
-       52]                                   # Meowth
+       52,                                   # Meowth
+       380,                                  # Latias
+       25]                                   # Pikachu
 BASE = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
         "sprites/pokemon/versions/generation-v/black-white/animated/{}.gif")
 SHINY = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
@@ -30,6 +32,13 @@ for pid in IDS:
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 target.write_bytes(r.read())
+            # validate: a truncated GIF would crash the app at
+            # startup (Tk pixmap failure), so retry it instead
+            from PIL import Image
+            im = Image.open(target)
+            im.load()
+            if im.n_frames < 5 and "52" not in name:
+                raise ValueError("truncated gif")
             print(f"ok  {name}", flush=True)
         except Exception as exc:
             print(f"FAIL {name}: {str(exc)[:60]}", flush=True)
