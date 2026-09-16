@@ -1158,18 +1158,79 @@ class AgentMind:
         try:
             from PIL import ImageGrab
             shot = ImageGrab.grab()
-            shot = shot.resize((1280, 720), Image.LANCZOS)
+            shot = shot.resize((1024, 576), Image.LANCZOS)
             buf  = io.BytesIO()
             shot.save(buf, format="PNG")
             img_b64 = base64.standard_b64encode(buf.getvalue()).decode()
 
-            # deepseek-chat is text-only: no vision payload; fall
-            # back to an in-character guess about the screen
+            provider = getattr(self, "_provider", "deepseek")
+            model = getattr(self, "_model", "") or {
+                "deepseek": "deepseek-chat",
+                "openai": "gpt-4o-mini",
+                "anthropic": "claude-3-5-haiku-latest",
+            }.get(provider, "deepseek-chat")
+            sysmsg = self._system()
+            prompt = ("Look at this screenshot of the user's "
+                      "screen. Comment in-character as your "
+                      "Pokémon persona, under 2 sentences.")
+            if provider == "openai":
+                # gpt-4o-mini is vision-capable: real screen
+                # comment via the image_url payload
+                payload = json.dumps({
+                    "model": model,
+                    "max_tokens": 120,
+                    "messages": [
+                        {"role": "system", "content": sysmsg},
+                        {"role": "user", "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {
+                                "url": "data:image/png;base64,"
+                                + img_b64}}]}],
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.openai.com/v1/chat/completions",
+                    data=payload,
+                    headers={"Content-Type": "application/json",
+                             "Authorization": "Bearer "
+                             + self._client})
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    body = json.loads(r.read().decode("utf-8"))
+                text = body["choices"][0]["message"]["content"].strip()
+                self._inbox.put(("say", text))
+                return
+            if provider == "anthropic":
+                # claude haiku is vision-capable: base64 image
+                # block in the messages content
+                payload = json.dumps({
+                    "model": model,
+                    "max_tokens": 120,
+                    "system": sysmsg,
+                    "messages": [{"role": "user", "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image", "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": img_b64}}]}],
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.anthropic.com/v1/messages",
+                    data=payload,
+                    headers={"Content-Type": "application/json",
+                             "x-api-key": self._client,
+                             "anthropic-version": "2023-06-01"})
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    body = json.loads(r.read().decode("utf-8"))
+                text = body["content"][0]["text"].strip()
+                self._inbox.put(("say", text))
+                return
+            # deepseek-chat is text-only: no vision payload --
+            # an honest in-character fallback explains why
             self._inbox.put(("say",
-                "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。）"))
-            return
+                "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。"
+                "DeepSeek 模型还没有眼睛，换 openai / anthropic "
+                "的 key 我就能真的看懂你的屏幕啦。）"))
         except Exception as exc:
-            print(f"[AgentMind look] {exc}", flush=True)
+            self._inbox.put(("err", f"Look Around 失败：{exc}"))
 
     def _drain(self):
         try:
