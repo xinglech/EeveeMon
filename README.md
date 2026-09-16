@@ -59,6 +59,13 @@ Eeveelutions, each with its canonical method displayed and enforced:
 evolving consumes the stone; the menu shows live counts and disables
 `×0` entries. *Gift 进化石* grants a random stone on a 10-minute cooldown.
 
+**Collection book (收集册)** — the right-click *Collection 收集册* menu
+opens the card album: all 24 forms face down as `?` cards with their
+unlock hint (starter / previous stage / stone name / friendship) until
+you choose or evolve into them — collecting the rest of the roster is
+the long-term goal. Every form you have ever picked or evolved into
+this session flips face-up with its sprite and name.
+
 **Quality of life**
 
 - 1-in-100 shiny chance on spawn, evolution, and reroll
@@ -69,6 +76,9 @@ evolving consumes the stone; the menu shows live counts and disables
 - Magenta-background keyout on the selection screen and an anti-fringe
   edge snap on the taskbar sprite path
 - Tk pixmap-budget fix: only starter sprites preload; the rest load lazily
+- The launcher bat contains **no hardcoded Python path** — it prefers the
+  bundled exe, then any `python` on PATH, then the `py` launcher, so it
+  works on machines where Python lives anywhere (or not at all)
 
 ## Quick start
 
