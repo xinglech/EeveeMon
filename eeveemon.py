@@ -1213,6 +1213,10 @@ class Buddy:
         self.is_shiny  = False
         self.size_pct  = 100   # 100 = default (SCALE×2)
         self.agent     = None  # set after selection screen
+        # the collection book: every form ever chosen/evolved
+        # into this session {(line_idx, stage), ...}
+        self.unlocked  = {(0, 0)}
+        self._album_imgs = []
         # evolution-stone inventory (the light item system)
         self.inventory = {"水之石": 1, "雷之石": 1, "火之石": 1,
                           "叶之石": 1, "冰之石": 1}
@@ -1306,6 +1310,8 @@ class Buddy:
     def _on_chosen(self, line_idx: int):
         self.line_idx  = line_idx
         self.evo_stage = 0
+        if getattr(self, "unlocked", None) is not None:
+            self.unlocked.add((line_idx, 0))
         self.is_shiny  = random.random() < (1 / SHINY_CHANCE)
         self._started  = True
 
@@ -1379,6 +1385,8 @@ class Buddy:
         if req.startswith("stone:"):
             self.inventory[req.split(":", 1)[1]] -= 1
         self.evo_stage = stage
+        if getattr(self, "unlocked", None) is not None:
+            self.unlocked.add((self.line_idx, stage))
         self.frame_i = 0
         self._apply()
         self._evo_flash()
@@ -1452,6 +1460,8 @@ class Buddy:
     def _change_line(self, idx: int):
         self.line_idx  = idx
         self.evo_stage = 0
+        if getattr(self, "unlocked", None) is not None:
+            self.unlocked.add((idx, 0))
         self.is_shiny  = random.random() < (1 / SHINY_CHANCE)
         self.frame_i   = 0
         self._apply()
@@ -1461,6 +1471,80 @@ class Buddy:
         self.is_shiny = random.random() < (1 / SHINY_CHANCE)
         self.frame_i  = 0
         self._apply()
+
+    # ── Collection book (收集册) ───────────────────────────────────────────────
+    def _unlock_hint(self, line, si: int) -> str:
+        """The unlock condition shown on a locked card."""
+        if si == 0:
+            return "选为初始伙伴"
+        if line is STARTER_LINES[self.EEVEE_LINE]:
+            req = line["evolutions"][si].get("req", "")
+            if req.startswith("stone:"):
+                return req.split(":", 1)[1]
+            return "亲密度"
+        return "进化前一只"
+
+    def _open_collection(self):
+        """The card album: every form in the game, unlocked ones
+        face up (sprite + name), locked ones face down with the
+        unlock hint -- the 'collect the rest' goal made visible."""
+        win = tk.Toplevel(self.root)
+        win.title("EeveeMon — Collection 收集册")
+        win.resizable(True, True)
+        c = tk.Canvas(win, width=560, height=600, bg="#0E1F09",
+                      highlightthickness=0)
+        c.pack(fill="both", expand=True)
+        CW, CH, PAD, COLS = 108, 116, 8, 5
+        col = row = total = 0
+        self._album_imgs = []
+        for li, line in enumerate(STARTER_LINES):
+            for si, ev in enumerate(line["evolutions"]):
+                key = (li, si)
+                have = key in self.unlocked
+                x0 = PAD + col * CW
+                y0 = 34 + row * CH
+                x1, y1 = x0 + CW - PAD, y0 + CH - PAD
+                c.create_rectangle(
+                    x0, y0, x1, y1,
+                    fill="#162412" if have else "#0B1A08",
+                    outline="#C9A227" if have else "#2A3A20",
+                    width=2 if have else 1)
+                if have:
+                    path = sprite_path(ev["id"], False)
+                    if os.path.exists(path):
+                        frames_r, frames_l, _w, _h = load_frames(
+                            path, scale=2, keyout_bg="#162412")
+                        # hold refs to BOTH mirrored lists -- Tk
+                        # collects un-referenced PhotoImages
+                        self._album_imgs.extend(frames_r)
+                        self._album_imgs.extend(frames_l)
+                        c.create_image((x0 + x1) // 2,
+                                       y0 + 34, image=frames_r[0])
+                    c.create_text((x0 + x1) // 2, y1 - 14,
+                                  text=ev["name"], fill="#FFFFFF",
+                                  font=("Segoe UI", 8, "bold"))
+                else:
+                    c.create_text((x0 + x1) // 2, y0 + 36,
+                                  text="?", fill="#4A6840",
+                                  font=("Segoe UI", 20, "bold"))
+                    c.create_text((x0 + x1) // 2, y1 - 14,
+                                  text=self._unlock_hint(line, si),
+                                  fill="#4A6840",
+                                  font=("Segoe UI", 7))
+                total += 1
+                col += 1
+                if col >= COLS:
+                    col = 0
+                    row += 1
+        got = len(self.unlocked)
+        c.create_text(280, 16,
+                      text=f"Collection {got}/{total} — 进化与切换即解锁",
+                      fill="#A8C898", font=("Segoe UI", 11, "bold"))
+        try:
+            win.attributes("-topmost", True)
+            win.lift()
+        except tk.TclError:
+            pass
 
     def _change_size(self, pct: int):
         self.size_pct = pct
@@ -1530,6 +1614,8 @@ class Buddy:
         m.add_cascade(label="Change Starter", menu=sub_s)
         m.add_command(label="选择界面 (Start Menu)",
                       command=self._open_select)
+        m.add_command(label="Collection 收集册",
+                      command=self._open_collection)
 
         # Size
         sub_z = tk.Menu(m, tearoff=0, font=("Segoe UI", 9))
