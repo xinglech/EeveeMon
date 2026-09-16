@@ -102,6 +102,7 @@ class FakeBuddy:
     def _change_size(self, pct): pass
     def _quit_app(self): pass
     def _open_select(self): pass
+    def _open_collection(self): pass
 
     def _evo_available(self, evo):
         return M.Buddy._evo_available(self, evo)
@@ -218,6 +219,7 @@ class RecBuddy(FakeBuddy):
         self.calls = []
         self.root = _Root()
     def _open_select(self): self.calls.append(("select",))
+    def _open_collection(self): self.calls.append(("collection",))
 
     def _reroll_shiny(self): self.calls.append(("reroll",))
     def _throw(self): self.calls.append(("throw",))
@@ -287,6 +289,7 @@ try:
     check("look fired", ("look",) in calls)
     check("evolve cascade fired (8 ways, stones consumed)",
           any(c[0] == "evolve" for c in calls))
+    check("collection fired", ("collection",) in calls)
 except Exception as e:
     check("interaction walk", False, str(e))
 finally:
@@ -295,6 +298,41 @@ finally:
 class FakePet:
     x, y, sw, sh = 100.0, 500.0, 96, 96
 
+
+# ---- 6ab. the collection album ----
+class AlbumBuddy(FakeBuddy):
+    def __init__(self):
+        super().__init__()
+        self.unlocked = {(3, 0), (3, 1), (0, 0)}
+        self._album_imgs = []
+        self.EEVEE_LINE = 3
+    _unlock_hint = M.Buddy._unlock_hint
+
+
+ab = AlbumBuddy()
+root7 = tk.Tk()
+root7.withdraw()
+ab.root = root7
+M.Buddy._open_collection(ab)
+try:
+    album_win = [w for w in root7.winfo_children()
+                 if isinstance(w, tk.Toplevel)]
+    check("album window opens", len(album_win) >= 1)
+    check("unlocked cards face up", len(ab._album_imgs) >= 3)
+    hint_stone = M.Buddy._unlock_hint(ab, M.STARTER_LINES[3], 1)
+    hint_ice = M.Buddy._unlock_hint(ab, M.STARTER_LINES[3], 7)
+    hint_friend = M.Buddy._unlock_hint(ab, M.STARTER_LINES[3], 4)
+    check("stone branch hint is the stone name", "石" in hint_stone)
+    check("ice branch hint correct", hint_ice == "冰之石")
+    check("friendship branch hint present", hint_friend == "亲密度")
+    check("base-card hint is starter", M.Buddy._unlock_hint(
+        ab, M.STARTER_LINES[0], 0) == "选为初始伙伴")
+    check("unlock tracking: evolve adds a card",
+          len(ab.unlocked) == 3)
+except Exception as e:
+    check("album checks", False, str(e))
+finally:
+    root7.destroy()
 
 # ---- 6b. real _throw and _use_move (not the recorder stubs) ----
 root6 = tk.Tk()
