@@ -13,12 +13,35 @@ entirely controlled from its right-click menu.
 
 ---
 
+## What's new in v1.3
+
+- **Collection book (收集册)** — a 24-card album in the right-click menu:
+  locked cards sit face down as `?` with their unlock hint, and every form
+  you pick or evolve into flips face-up with its sprite. Catching 'em all
+  is now a visible long-term goal.
+- **Look Around actually looks** — the screen-capture companion now sends
+  a real vision payload to OpenAI (gpt-4o-mini) and Anthropic (Claude
+  Haiku), so the pet comments on what is actually on your screen.
+  DeepSeek's text-only model keeps an honest in-character fallback, and
+  API failures now surface as a visible bubble instead of failing silently.
+- **Launcher path bug fixed** — `EeveeMon.bat` no longer hard-codes a
+  Python path. It prefers the bundled exe, then any `python` found on
+  `PATH`, then the `py` launcher — so double-clicking works on machines
+  where Python lives anywhere, or not at all.
+- **Menu verified for every Pokémon** — a new walk test exercises every
+  enabled entry of every line's right-click menu (all 8 starter lines and
+  all 8 Eevee evolution stages). The suite is at 69 checks, all green.
+
+---
+
 ## Table of contents
 
+- [What's new in v1.3](#whats-new-in-v13)
 - [Features](#features)
 - [Quick start](#quick-start)
 - [Usage](#usage)
 - [AI chat companion](#ai-chat-companion)
+- [Testing](#testing)
 - [Building from source](#building-from-source)
 - [Project architecture](#project-architecture)
 - [Related projects](#related-projects)
@@ -127,6 +150,7 @@ Everything is reachable from the pet's right-click menu:
 | Re-roll the 1/100 shiny | Reroll Shiny |
 | Chat with the pet | Talk to Me |
 | Have the pet "look" at your screen | Look Around |
+| Open the 24-card collection album | Collection 收集册 |
 | Fun bubble animation | Throw Up |
 | Exit | Quit |
 
@@ -154,6 +178,24 @@ exclusively to the chosen provider's official endpoint
 (`api.deepseek.com` / `api.openai.com` / `api.anthropic.com`), and is never
 printed or persisted anywhere else.
 
+**Look Around and vision.** With an OpenAI or Anthropic key, *Look Around*
+captures your screen and sends it to the vision-capable model
+(gpt-4o-mini / Claude Haiku), and the pet comments on what it sees — in
+character. DeepSeek's chat model is text-only, so there the pet honestly
+says it cannot see yet; switching the provider file enables real vision.
+
+## Testing
+
+The repository ships a self-contained test suite (no extra framework):
+
+```bat
+python test_eeveemon.py       REM 69 checks: sprites, roster, stones,
+                              REM evolution, menu walk, carousel, chat,
+                              REM collection book, a real API call
+python verify_all_menus.py    REM every menu entry of every line and
+                              REM every Eevee stage, walked and invoked
+```
+
 ## Building from source
 
 ```bat
@@ -167,18 +209,24 @@ This fetches the sprites if missing and produces a one-file
 
 ## Project architecture
 
-- `eeveemon.py` — the whole application (~1.4k lines), structured as:
+- `eeveemon.py` — the whole application (~1.7k lines), structured as:
   - `STARTER_LINES` — declarative roster: each line carries its
     evolutions (id, name, method, requirement) and moves
-  - `Buddy` — the taskbar sprite, physics, right-click menu
-  - `AgentMind` — the provider-agnostic AI chat layer (raw HTTP, no SDK)
-  - `StarterSelect` — the animated selection screen
+  - `Buddy` — the taskbar sprite, physics, right-click menu, and the
+    collection book (`unlocked` set + `_open_collection` album)
+  - `AgentMind` — the provider-agnostic AI layer (raw HTTP, no SDK);
+    `_look_thread` captures the screen and sends vision payloads to
+    OpenAI / Anthropic with a text-only fallback for DeepSeek
+  - `StarterSelect` — the animated carousel selection screen
   - `load_frames` — GIF loading with a dual transparency strategy:
     magenta bake for the window colour key (taskbar) and alpha keyout
     composited over the card background (selection screen)
 - `fetch_sprites.py` — sprite acquisition (Gen V animated GIFs from
   PokeAPI; not stored in this repository)
-- `EeveeMon.bat` — one-click restart for the dev machine (Windows)
+- `test_eeveemon.py` / `verify_all_menus.py` — the 69-check suite and
+  the every-line menu walk
+- `EeveeMon.bat` — launcher with no hardcoded Python path (exe →
+  `PATH` python → `py` launcher)
 - `run_mac.sh` — one-command source run on macOS
 - `build_exe.bat` — PyInstaller packaging (Windows)
 
