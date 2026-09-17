@@ -1266,14 +1266,35 @@ class AgentMind:
                 text = body["content"][0]["text"].strip()
                 self._inbox.put(("say", text))
                 return
-            # deepseek-chat is text-only and even v4-pro's API
-            # ignores images (tested 2026-09-17: 200 but its
-            # reasoning says 'image unsupported') -- the honest
-            # in-character fallback explains why
-            self._inbox.put(("say",
-                "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。"
-                "DeepSeek 的 API 还不收图片，换 openai / anthropic "
-                "的 key 我就能真的看懂你的屏幕啦。）"))
+            # deepseek: v4-pro ignores images BUT deepseek-flash
+            # accepts the standard OpenAI-style image payload
+            # (tested 2026-09-17: it answered 'Red' on a base64
+            # test image) -- use flash for the look
+            payload = json.dumps({
+                "model": "deepseek-flash",
+                "max_tokens": 120,
+                "messages": [
+                    {"role": "system", "content": sysmsg},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {
+                            "url": "data:image/png;base64,"
+                            + img_b64}}]}],
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "https://api.deepseek.com/chat/completions",
+                data=payload,
+                headers={"Content-Type": "application/json",
+                         "Authorization": "Bearer "
+                         + self._client})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                body = json.loads(r.read().decode("utf-8"))
+            text = body["choices"][0]["message"]["content"].strip()
+            if text:
+                self._inbox.put(("say", text))
+            else:
+                self._inbox.put(("say",
+                    "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。）"))
         except Exception as exc:
             self._inbox.put(("err", f"Look Around 失败：{exc}"))
 
@@ -1799,6 +1820,9 @@ class Buddy:
         m.add_command(label="Talk to Me",
                       command=lambda: self.agent.speak() if self.agent else None,
                       state="normal" if ai_on else "disabled")
+        m.add_command(label="Chat 输入…",
+                      command=self._open_chat_input,
+                      state="normal" if ai_on else "disabled")
         m.add_command(label="Look Around",
                       command=lambda: self.agent.look_around() if self.agent else None,
                       state="normal" if ai_on else "disabled")
@@ -1854,10 +1878,45 @@ class Buddy:
 
     def _release(self, e):
         self._dragging = False
-        # Treat as a click (not a drag) if mouse barely moved → talk
+        # Treat as a click (not a drag) if mouse barely moved →
+        # single click = random talk, DOUBLE click = the chat
+        # input window (type to the pet)
         if abs(e.x - self._click_x0) < 6 and abs(e.y - self._click_y0) < 6:
-            if self.agent:
-                self.agent.speak()
+            now = time.time()
+            if getattr(self, "_last_click_t", 0) \
+                    and now - self._last_click_t < 0.4:
+                self._last_click_t = 0.0
+                self._open_chat_input()
+            else:
+                self._last_click_t = now
+                if self.agent:
+                    self.agent.speak()
+
+    # ── Chat input (type to the pet) ──────────────────────────────────────────
+    def _open_chat_input(self):
+        """A small input window: type a message, the pet replies
+        in its speech bubble (and remembers the exchange)."""
+        if not self.agent or self.agent._client is None:
+            return
+        win = tk.Toplevel(self.root)
+        win.title("EeveeMon — Chat")
+        win.resizable(False, False)
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        win.geometry(f"360x96+{(sw-360)//2}+{(sh-96)//2}")
+        win.attributes("-topmost", True)
+        entry = tk.Entry(win, font=("Segoe UI", 11))
+        entry.pack(fill="x", padx=12, pady=(14, 4), ipady=4)
+
+        def send(_event=None):
+            text = entry.get().strip()
+            if text:
+                self.agent._call(text)
+            win.destroy()
+
+        tk.Button(win, text="Send 发送", command=send,
+                  font=("Segoe UI", 10)).pack(pady=(0, 10))
+        entry.bind("<Return>", send)
+        entry.focus_set()
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def _throw(self):
