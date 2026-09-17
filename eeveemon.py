@@ -145,6 +145,7 @@ STARTER_LINES = [
         "type": "Normal", "color": "#C9A227",
         "evolutions": [
             {"id": 52, "name": "Meowth", "method": "", "req": ""},
+            {"id": 53, "name": "Persian", "method": "", "req": ""},
         ],
         "moves": [
             {"name": "Scratch",      "fx": "scratch"},
@@ -169,6 +170,7 @@ STARTER_LINES = [
         "type": "Electric", "color": "#F5C518",
         "evolutions": [
             {"id": 25, "name": "Pikachu", "method": "", "req": ""},
+            {"id": 26, "name": "Raichu", "method": "", "req": ""},
         ],
         "moves": [
             {"name": "Thunderbolt",  "fx": "dragon_rage"},
@@ -180,6 +182,7 @@ STARTER_LINES = [
     {
         "type": "Poison", "color": "#8E24AA",
         "evolutions": [
+            {"id": 23, "name": "Ekans", "method": "", "req": ""},
             {"id": 24, "name": "Arbok", "method": "", "req": ""},
         ],
         "moves": [
@@ -192,6 +195,7 @@ STARTER_LINES = [
     {
         "type": "Psychic", "color": "#3F51B5",
         "evolutions": [
+            {"id": 360, "name": "Wynaut", "method": "", "req": ""},
             {"id": 202, "name": "Wobbuffet", "method": "", "req": ""},
         ],
         "moves": [
@@ -205,6 +209,8 @@ STARTER_LINES = [
         "type": "Water", "color": "#1565C0",
         "evolutions": [
             {"id": 393, "name": "Piplup", "method": "", "req": ""},
+            {"id": 394, "name": "Prinplup", "method": "", "req": ""},
+            {"id": 395, "name": "Empoleon", "method": "", "req": ""},
         ],
         "moves": [
             {"name": "Bubble",      "fx": "bubble"},
@@ -217,6 +223,8 @@ STARTER_LINES = [
         "type": "Fairy", "color": "#F06292",
         "evolutions": [
             {"id": 175, "name": "Togepi", "method": "", "req": ""},
+            {"id": 176, "name": "Togetic", "method": "", "req": ""},
+            {"id": 468, "name": "Togekiss", "method": "", "req": ""},
         ],
         "moves": [
             {"name": "Metronome",    "fx": "dragon_rage"},
@@ -229,6 +237,7 @@ STARTER_LINES = [
         "type": "Normal", "color": "#EC407A",
         "evolutions": [
             {"id": 108, "name": "Lickitung", "method": "", "req": ""},
+            {"id": 463, "name": "Lickilicky", "method": "", "req": ""},
         ],
         "moves": [
             {"name": "Lick",   "fx": "scratch"},
@@ -240,6 +249,7 @@ STARTER_LINES = [
     {
         "type": "Poison", "color": "#7B1FA2",
         "evolutions": [
+            {"id": 109, "name": "Koffing", "method": "", "req": ""},
             {"id": 110, "name": "Weezing", "method": "", "req": ""},
         ],
         "moves": [
@@ -285,6 +295,16 @@ PERSONALITIES = {
     "Togepi":    "You are Togepi, a baby Fairy-type overflowing with innocent joy. You see the best in everything, ask endless curious questions, and your presence quietly makes everyone luckier.",
     "Lickitung": "You are Lickitung, a sweet, goofy, perpetually hungry Normal-type. You think with your tongue and your stomach, forget things mid-sentence, and want to know if everything is edible.",
     "Weezing":   "You are Weezing, a grumpy old Poison-type who sounds like a tired factory worker. You wheeze, crack dry jokes about the air quality, but secretly care deeply about your trainer's health.",
+    "Persian":   "You are Persian, an elegant, aloof Normal-type aristocrat. You speak in refined, lazy tones, take pride in your glossy coat, and tolerate your trainer with regal affection.",
+    "Raichu":    "You are Raichu, a grounded, warm-hearted Electric-type. You are more relaxed than you were as a Pikachu, glow softly when happy, and keep your trainer safe during storms.",
+    "Ekans":     "You are Ekans, a young Poison-type snake, coiled and watchful. You hiss softly, dream of growing into a great hooded serpent, and practice your intimidating glare daily.",
+    "Wynaut":    "You are Wynaut, a tiny Patient Pokémon who greets everything with a wide smile and a playful taunt. You speak in giggles and riddles, and patiently wait for everything.",
+    "Prinplup":  "You are Prinplup, a proud middle-stage penguin, all sharp edges and ambition. You are trying very hard to look dignified, and it works about half the time.",
+    "Empoleon":  "You are Empoleon, the emperor penguin, calm, commanding, and unshakable. You speak with icy authority, keep your posture perfect, and take your trainer under your flipper.",
+    "Togetic":   "You are Togetic, a gentle Fairy-type who rarely touches the ground. You speak in soft, encouraging tones, float everywhere, and share your good fortune freely.",
+    "Togekiss":  "You are Togekiss, a serene Fairy-type who avoids conflict and spreads peace. You speak in warm, gentle platitudes and quietly arrange lucky coincidences.",
+    "Lickilicky": "You are Lickilicky, a jolly round Normal-type with an even bigger appetite than before. You greet everything with a lick, love buffets, and think naps are a food group.",
+    "Koffing":   "You are Koffing, a cheery, round Poison-type who floats everywhere and is proud of your gas. You are upbeat despite the smell, and dream of growing a second head.",
 }
 
 
@@ -1795,6 +1815,30 @@ class Buddy:
         self._apply()
 
     # ── Collection book (收集册) ───────────────────────────────────────────────
+    ALBUM_BOX = (78, 58)   # every card's sprite fits this box
+
+    def _album_photo(self, path):
+        """First GIF frame, magenta keyed out and composited
+        over the card colour, then FIT into ALBUM_BOX (uniform
+        card size regardless of the sprite's native size)."""
+        try:
+            src = Image.open(path)
+            fr = src.convert("RGBA")
+            base = Image.new("RGBA", fr.size, (255, 0, 255, 255))
+            base.paste(fr, mask=fr.split()[3])
+            px = base.load()
+            for yy in range(base.height):
+                for xx in range(base.width):
+                    r, g, b, a = px[xx, yy]
+                    if r > 225 and g < 70 and b > 225:
+                        px[xx, yy] = (0, 0, 0, 0)
+            card = Image.new("RGBA", base.size, "#162412")
+            card.paste(base, mask=base.split()[3])
+            card.thumbnail(self.ALBUM_BOX, Image.LANCZOS)
+            return ImageTk.PhotoImage(card.convert("RGB"))
+        except Exception:
+            return None
+
     def _unlock_hint(self, line, si: int) -> str:
         """The unlock condition shown on a locked card."""
         if si == 0:
@@ -1834,14 +1878,16 @@ class Buddy:
                 if have:
                     path = sprite_path(ev["id"], False)
                     if os.path.exists(path):
-                        frames_r, frames_l, _w, _h = load_frames(
-                            path, scale=2, keyout_bg="#162412")
-                        # hold refs to BOTH mirrored lists -- Tk
-                        # collects un-referenced PhotoImages
-                        self._album_imgs.extend(frames_r)
-                        self._album_imgs.extend(frames_l)
-                        c.create_image((x0 + x1) // 2,
-                                       y0 + 34, image=frames_r[0])
+                        # uniform card look: sprites come in very
+                        # different native sizes (Togepi 40x38 vs
+                        # Latias 186px wide), so each is baked
+                        # over the card colour and FIT into the
+                        # same box (aspect kept)
+                        img = self._album_photo(path)
+                        if img is not None:
+                            self._album_imgs.append(img)
+                            c.create_image((x0 + x1) // 2,
+                                           y0 + 34, image=img)
                     c.create_text((x0 + x1) // 2, y1 - 14,
                                   text=ev["name"], fill="#FFFFFF",
                                   font=("Segoe UI", 8, "bold"))
