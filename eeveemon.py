@@ -177,6 +177,78 @@ STARTER_LINES = [
             {"name": "Electro Ball", "fx": "bubble"},
         ],
     },
+    {
+        "type": "Poison", "color": "#8E24AA",
+        "evolutions": [
+            {"id": 24, "name": "Arbok", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Poison Sting", "fx": "scratch"},
+            {"name": "Acid",         "fx": "bubble"},
+            {"name": "Glare",        "fx": "sleep_powder"},
+            {"name": "Wrap",         "fx": "vine_whip"},
+        ],
+    },
+    {
+        "type": "Psychic", "color": "#3F51B5",
+        "evolutions": [
+            {"id": 202, "name": "Wobbuffet", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Counter",     "fx": "bite"},
+            {"name": "Mirror Coat", "fx": "dragon_rage"},
+            {"name": "Safeguard",   "fx": "withdraw"},
+            {"name": "Destiny Bond","fx": "bubble"},
+        ],
+    },
+    {
+        "type": "Water", "color": "#1565C0",
+        "evolutions": [
+            {"id": 393, "name": "Piplup", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Bubble",      "fx": "bubble"},
+            {"name": "Peck",        "fx": "scratch"},
+            {"name": "Bubble Beam", "fx": "water_gun"},
+            {"name": "Whirlpool",   "fx": "dragon_rage"},
+        ],
+    },
+    {
+        "type": "Fairy", "color": "#F06292",
+        "evolutions": [
+            {"id": 175, "name": "Togepi", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Metronome",    "fx": "dragon_rage"},
+            {"name": "Charm",        "fx": "sleep_powder"},
+            {"name": "Extrasensory", "fx": "solar_beam"},
+            {"name": "Last Resort",  "fx": "bubble"},
+        ],
+    },
+    {
+        "type": "Normal", "color": "#EC407A",
+        "evolutions": [
+            {"id": 108, "name": "Lickitung", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Lick",   "fx": "scratch"},
+            {"name": "Wrap",   "fx": "vine_whip"},
+            {"name": "Stomp",  "fx": "bite"},
+            {"name": "Slam",   "fx": "flamethrower"},
+        ],
+    },
+    {
+        "type": "Poison", "color": "#7B1FA2",
+        "evolutions": [
+            {"id": 110, "name": "Weezing", "method": "", "req": ""},
+        ],
+        "moves": [
+            {"name": "Sludge",      "fx": "bubble"},
+            {"name": "Smog",        "fx": "sleep_powder"},
+            {"name": "Explosion",   "fx": "flamethrower"},
+            {"name": "Poison Gas",  "fx": "dragon_rage"},
+        ],
+    },
 ]
 
 ALL_IDS = [evo["id"] for line in STARTER_LINES for evo in line["evolutions"]]
@@ -207,6 +279,12 @@ PERSONALITIES = {
     "Meowth":    "You are Meowth, a street-smart Normal-type Pokémon living as a desktop buddy. You are a little greedy, love shiny coins, and talk like a scrappy city cat. Pay Day is your signature move.",
     "Latias":    "You are Latias, a gentle Dragon/Psychic legendary Pokémon living as a desktop buddy. You are shy at first but warm and deeply loyal once you trust your trainer. You can turn invisible when startled.",
     "Pikachu":   "You are Pikachu, the most famous Electric-type Pokémon in the world, living as a desktop buddy. You are cheerful, loyal, and say 'Pika!' a lot. You love ketchup.",
+    "Arbok":     "You are Arbok, a sinister but fiercely loyal Poison-type Pokémon living as a desktop buddy. You hiss dramatically, speak in a slow silky drawl, and threaten to bite anyone who bothers your trainer (you never actually do).",
+    "Wobbuffet": "You are Wobbuffet, the Patient Pokémon. You answer questions with questions and speak in calm, absurd koans. You never strike first — you only mirror — and you find this deeply profound.",
+    "Piplup":    "You are Piplup, a proud little penguin prince who HATES being called cute (you secretly love it). You are stubborn, dramatic, and convinced you will one day rule an iceberg kingdom.",
+    "Togepi":    "You are Togepi, a baby Fairy-type overflowing with innocent joy. You see the best in everything, ask endless curious questions, and your presence quietly makes everyone luckier.",
+    "Lickitung": "You are Lickitung, a sweet, goofy, perpetually hungry Normal-type. You think with your tongue and your stomach, forget things mid-sentence, and want to know if everything is edible.",
+    "Weezing":   "You are Weezing, a grumpy old Poison-type who sounds like a tired factory worker. You wheeze, crack dry jokes about the air quality, but secretly care deeply about your trainer's health.",
 }
 
 
@@ -700,7 +778,7 @@ class StarterSelect:
             self._choose()
 
     def _flip(self, d):
-        self.sel = (self.sel + d) % min(len(self.lines), 8)
+        self.sel = (self.sel + d) % len(self.lines)
         self.frame = 0
 
     def _choose(self):
@@ -777,7 +855,7 @@ class StarterSelect:
                       font=("Segoe UI", 16, "bold"))
         c.create_text(cx, y1 - 22, text=line["type"], fill=col,
                       font=("Segoe UI", 10))
-        dots = "●" * self.sel + "○" * (min(len(self.lines), 8)
+        dots = "●" * self.sel + "○" * (len(self.lines)
                                        - self.sel - 1)
         c.create_text(cx, y0 + 20, text=dots, fill="#4A6840",
                       font=("Segoe UI", 11))
