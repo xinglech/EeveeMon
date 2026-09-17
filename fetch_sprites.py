@@ -20,7 +20,15 @@ IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9,          # Kanto starters
        393,                                  # Piplup
        175,                                  # Togepi
        108,                                  # Lickitung
-       110]                                  # Weezing
+       110,                                  # Weezing
+       53,                                   # Persian
+       26,                                   # Raichu
+       23,                                   # Ekans
+       360,                                  # Wynaut
+       394, 395,                             # Prinplup / Empoleon
+       176, 468,                             # Togetic / Togekiss
+       463,                                  # Lickilicky
+       109]                                  # Koffing
 BASE = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
         "sprites/pokemon/versions/generation-v/black-white/animated/{}.gif")
 SHINY = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
