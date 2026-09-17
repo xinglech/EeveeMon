@@ -13,6 +13,18 @@ entirely controlled from its right-click menu.
 
 ---
 
+## What's new in v1.4
+
+- **Progress persists** — the collection book, the stone inventory,
+  your current form/size/shiny and the Gift cooldown are saved to
+  `eeveemon_save.json` next to the app. Restart and your pet comes
+  straight back — no selection screen, nothing lost. Catching 'em
+  all is now a campaign that survives reboots.
+- **The pet remembers** — the AI companion keeps the last three
+  exchanges and replays them, so the conversation actually continues
+  instead of resetting every time.
+- Suite grows to 78 checks (save roundtrip, restore path, memory).
+
 ## What's new in v1.3
 
 - **Collection book (收集册)** — a 24-card album in the right-click menu:
