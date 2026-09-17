@@ -28,9 +28,13 @@ import urllib.request, os, sys, time, random, math, threading, base64, io, textw
 # ═══════════════════════════════════════════════════════════════════════════════
 if getattr(sys, "frozen", False):
     DIR = os.path.join(sys._MEIPASS, "sprites")   # bundled in the exe
+    APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
 else:
     DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sprites")
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(DIR, exist_ok=True)
+# the save file lives NEXT TO the app (writable in both modes)
+SAVE_PATH = os.path.join(APP_DIR, "eeveemon_save.json")
 
 TRANSPARENT  = "#FF00FF"
 MAC          = sys.platform == "darwin"
@@ -981,6 +985,9 @@ class AgentMind:
     def __init__(self, buddy):
         self.buddy   = buddy
         self._client = None
+        # short conversation memory: the last few exchanges are
+        # replayed so the pet actually remembers what you said
+        self.history = []   # [(role, text), ...]
         # thread-safe inbox: worker threads never touch Tk
         # directly; the main loop drains this queue instead
         self._inbox = queue.Queue()
@@ -1116,8 +1123,8 @@ class AgentMind:
                     "model": model,
                     "max_tokens": 120,
                     "system": sysmsg,
-                    "messages": [{"role": "user",
-                                  "content": prompt}],
+                    "messages": self.history[-6:] + [
+                        {"role": "user", "content": prompt}],
                 }).encode("utf-8")
                 req = urllib.request.Request(
                     "https://api.anthropic.com/v1/messages",
@@ -1137,6 +1144,7 @@ class AgentMind:
                     "max_tokens": 120,
                     "messages": [
                         {"role": "system", "content": sysmsg},
+                    ] + self.history[-6:] + [
                         {"role": "user", "content": prompt},
                     ],
                 }).encode("utf-8")
@@ -1149,6 +1157,9 @@ class AgentMind:
                     body = json.loads(r.read().decode("utf-8"))
                 text = body["choices"][0]["message"][
                     "content"].strip()
+            self.history.append(("user", prompt))
+            self.history.append(("assistant", text))
+            self.history = self.history[-6:]
             self._inbox.put(("say", text))
         except Exception as exc:
             self._inbox.put(("err", str(exc)[:80]))
@@ -1282,6 +1293,27 @@ class Buddy:
         self.inventory = {"水之石": 1, "雷之石": 1, "火之石": 1,
                           "叶之石": 1, "冰之石": 1}
         self._gift_until = 0.0   # Gift cooldown deadline
+        # restore a saved pet if one exists (the collection book
+        # and stone economy persist across restarts)
+        self._started = False
+        save = self._load_state()
+        if save:
+            try:
+                self.line_idx = int(save["line_idx"])
+                self.evo_stage = int(save["evo_stage"])
+                self.is_shiny = bool(save.get("is_shiny", False))
+                self.size_pct = int(save.get("size_pct", 100))
+                self.inventory.update(save.get("inventory", {}))
+                self.unlocked = {tuple(k) for k in
+                                 save.get("unlocked", [])}
+                if not self.unlocked:
+                    self.unlocked = {(self.line_idx,
+                                      self.evo_stage)}
+                self._gift_until = float(save.get("gift_until",
+                                                 0.0))
+                self._started = True
+            except (KeyError, ValueError, TypeError):
+                pass
 
         # Download sprites (skipped if already cached)
         print("EeveeMon — Checking sprites...", flush=True)
@@ -1315,12 +1347,14 @@ class Buddy:
                          for (pid, shiny, sc), v in self._cache.items()
                          if sc == SCALE}
 
-        # Show starter selection
-        select = StarterSelect(self.root, _select_cache, STARTER_LINES, self._on_chosen)
-        self.root.wait_window(select.win)
+        if not self._started:
+            # Show starter selection
+            select = StarterSelect(self.root, _select_cache,
+                                   STARTER_LINES, self._on_chosen)
+            self.root.wait_window(select.win)
 
-        if not getattr(self, "_started", False):
-            return  # window closed without choosing
+            if not getattr(self, "_started", False):
+                return  # window closed without choosing
 
         # ── Configure root as the buddy window ────────────────────────────────
         self.root.overrideredirect(True)
@@ -1367,6 +1401,33 @@ class Buddy:
         self._tick()
         self.root.mainloop()
 
+    # ── Save / load (the collection book persists) ────────────────────────────
+    def _save_state(self):
+        try:
+            data = {
+                "line_idx": self.line_idx,
+                "evo_stage": self.evo_stage,
+                "is_shiny": self.is_shiny,
+                "size_pct": self.size_pct,
+                "inventory": self.inventory,
+                "unlocked": sorted([list(k) for k in
+                                    getattr(self, "unlocked", set())]),
+                "gift_until": self._gift_until,
+            }
+            with open(SAVE_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+        except OSError:
+            pass
+
+    def _load_state(self):
+        if not os.path.exists(SAVE_PATH):
+            return None
+        try:
+            with open(SAVE_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+
     # ── Starter selection callback ────────────────────────────────────────────
     def _on_chosen(self, line_idx: int):
         self.line_idx  = line_idx
@@ -1375,6 +1436,7 @@ class Buddy:
             self.unlocked.add((line_idx, 0))
         self.is_shiny  = random.random() < (1 / SHINY_CHANCE)
         self._started  = True
+        self._save_state()
 
     # ── Sprite management ─────────────────────────────────────────────────────
     def _apply(self):
@@ -1449,6 +1511,7 @@ class Buddy:
         if getattr(self, "unlocked", None) is not None:
             self.unlocked.add((self.line_idx, stage))
         self.frame_i = 0
+        self._save_state()
         self._apply()
         self._evo_flash()
         self._build_menu()
@@ -1462,6 +1525,7 @@ class Buddy:
         stone = random.choice(list(self.inventory.keys()))
         self.inventory[stone] += 1
         self._gift_until = time.time() + 600
+        self._save_state()
         self._build_menu()
 
     def _evolve(self):
@@ -1486,6 +1550,7 @@ class Buddy:
             # Eeveelutions devolve straight back to Eevee
             self.evo_stage = 0
             self.frame_i = 0
+            self._save_state()
             self._apply()
             self._evo_flash()
             self._build_menu()
@@ -1493,6 +1558,7 @@ class Buddy:
         if self.evo_stage > 0:
             self.evo_stage -= 1
             self.frame_i = 0
+            self._save_state()
             self._apply()
             self._build_menu()
 
@@ -1525,12 +1591,14 @@ class Buddy:
             self.unlocked.add((idx, 0))
         self.is_shiny  = random.random() < (1 / SHINY_CHANCE)
         self.frame_i   = 0
+        self._save_state()
         self._apply()
         self._build_menu()
 
     def _reroll_shiny(self):
         self.is_shiny = random.random() < (1 / SHINY_CHANCE)
         self.frame_i  = 0
+        self._save_state()
         self._apply()
 
     # ── Collection book (收集册) ───────────────────────────────────────────────
@@ -1610,6 +1678,7 @@ class Buddy:
     def _change_size(self, pct: int):
         self.size_pct = pct
         self.frame_i  = 0
+        self._save_state()
         self._apply()
         self._build_menu()
 
@@ -1713,6 +1782,10 @@ class Buddy:
         # Tk -- the 'cannot close' bug).  The os._exit fallback
         # guarantees the process never lingers.
         def _kill():
+            try:
+                self._save_state()
+            except Exception:
+                pass
             try:
                 self.root.destroy()
             except tk.TclError:
