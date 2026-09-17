@@ -1136,7 +1136,8 @@ class AgentMind:
                     "model": model,
                     "max_tokens": 120,
                     "system": sysmsg,
-                    "messages": self.history[-6:] + [
+                    "messages": [{"role": r, "content": t}
+                                 for (r, t) in self.history[-6:]] + [
                         {"role": "user", "content": prompt}],
                 }).encode("utf-8")
                 req = urllib.request.Request(
@@ -1157,7 +1158,8 @@ class AgentMind:
                     "max_tokens": 120,
                     "messages": [
                         {"role": "system", "content": sysmsg},
-                    ] + self.history[-6:] + [
+                    ] + [{"role": r, "content": t}
+                         for (r, t) in self.history[-6:]] + [
                         {"role": "user", "content": prompt},
                     ],
                 }).encode("utf-8")
@@ -1177,6 +1179,23 @@ class AgentMind:
         except Exception as exc:
             self._inbox.put(("err", str(exc)[:80]))
             print(f"[AgentMind] {exc}", flush=True)
+            # the full error + response body land in a log next
+            # to the app (chat failures are otherwise opaque)
+            try:
+                import datetime as _dt
+                with open(os.path.join(self._app_dir(),
+                                       "eeveemon_chat.log"),
+                          "a", encoding="utf-8") as lf:
+                    lf.write(f"[{_dt.datetime.now():%Y-%m-%d %H:%M:%S}] "
+                             f"{provider} {model}: "
+                             f"{type(exc).__name__}: {exc}\n")
+                    if isinstance(exc, urllib.error.HTTPError):
+                        lf.write("  body: "
+                                 + exc.read().decode("utf-8",
+                                                     "replace")[:400]
+                                 + "\n")
+            except OSError:
+                pass
 
     def _look_thread(self):
         try:
@@ -1247,11 +1266,13 @@ class AgentMind:
                 text = body["content"][0]["text"].strip()
                 self._inbox.put(("say", text))
                 return
-            # deepseek-chat is text-only: no vision payload --
-            # an honest in-character fallback explains why
+            # deepseek-chat is text-only and even v4-pro's API
+            # ignores images (tested 2026-09-17: 200 but its
+            # reasoning says 'image unsupported') -- the honest
+            # in-character fallback explains why
             self._inbox.put(("say",
                 "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。"
-                "DeepSeek 模型还没有眼睛，换 openai / anthropic "
+                "DeepSeek 的 API 还不收图片，换 openai / anthropic "
                 "的 key 我就能真的看懂你的屏幕啦。）"))
         except Exception as exc:
             self._inbox.put(("err", f"Look Around 失败：{exc}"))
