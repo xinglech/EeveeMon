@@ -106,6 +106,7 @@ class FakeBuddy:
     def _quit_app(self): pass
     def _open_select(self): pass
     def _open_collection(self): pass
+    def _open_chat_input(self): pass
 
     def _evo_available(self, evo):
         return M.Buddy._evo_available(self, evo)
@@ -223,6 +224,7 @@ class RecBuddy(FakeBuddy):
         self.root = _Root()
     def _open_select(self): self.calls.append(("select",))
     def _open_collection(self): self.calls.append(("collection",))
+    def _open_chat_input(self): self.calls.append(("chat_input",))
 
     def _reroll_shiny(self): self.calls.append(("reroll",))
     def _throw(self): self.calls.append(("throw",))
@@ -293,6 +295,7 @@ try:
     check("evolve cascade fired (8 ways, stones consumed)",
           any(c[0] == "evolve" for c in calls))
     check("collection fired", ("collection",) in calls)
+    check("chat input fired", ("chat_input",) in calls)
 except Exception as e:
     check("interaction walk", False, str(e))
 finally:
