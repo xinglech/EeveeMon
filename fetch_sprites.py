@@ -14,7 +14,13 @@ IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9,          # Kanto starters
        255, 256, 257,                       # Torchic line
        52,                                   # Meowth
        380,                                  # Latias
-       25]                                   # Pikachu
+       25,                                   # Pikachu
+       24,                                   # Arbok
+       202,                                  # Wobbuffet
+       393,                                  # Piplup
+       175,                                  # Togepi
+       108,                                  # Lickitung
+       110]                                  # Weezing
 BASE = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
         "sprites/pokemon/versions/generation-v/black-white/animated/{}.gif")
 SHINY = ("https://raw.githubusercontent.com/PokeAPI/sprites/master/"
