@@ -1270,6 +1270,14 @@ class AgentMind:
             self.history = self.history[-6:]
             self._inbox.put(("say", text))
         except Exception as exc:
+            if isinstance(exc, urllib.error.URLError)                     and getattr(self, "_retried", 0) == 0:
+                # this network has DNS hiccups (getaddrinfo) --
+                # one retry before surfacing the error
+                self._retried = 1
+                time.sleep(2)
+                self._api_thread(prompt)
+                return
+            self._retried = 0
             self._inbox.put(("err", str(exc)[:80]))
             print(f"[AgentMind] {exc}", flush=True)
             # the full error + response body land in a log next
@@ -1397,7 +1405,26 @@ class AgentMind:
                 self._inbox.put(("say",
                     "（偷偷看了一眼你的屏幕，只看到一堆发光的方块。）"))
         except Exception as exc:
+            if isinstance(exc, urllib.error.URLError) \
+                    and getattr(self, "_look_retried", 0) == 0:
+                # this network has DNS hiccups -- one retry
+                self._look_retried = 1
+                time.sleep(2)
+                self._look_thread()
+                return
+            self._look_retried = 0
             self._inbox.put(("err", f"Look Around 失败：{exc}"))
+            # full error into the log (same as the chat path)
+            try:
+                import datetime as _dt
+                with open(os.path.join(self._app_dir(),
+                                       "eeveemon_chat.log"),
+                          "a", encoding="utf-8") as lf:
+                    lf.write(f"[{_dt.datetime.now():%Y-%m-%d %H:%M:%S}] "
+                             f"LOOK {provider} {model}: "
+                             f"{type(exc).__name__}: {exc}\n")
+            except OSError:
+                pass
 
     def _drain(self):
         try:
