@@ -841,6 +841,10 @@ class ChatBubble:
         self.root  = root
         self.buddy = buddy
         self.full_text = textwrap.fill(text, width=34)
+        # the auto-dismiss waits for the typewriter to finish:
+        # long replies were being cut mid-sentence
+        self.LIFE = max(9000, 6000 + len(self.full_text)
+                        * self.CHAR_MS)
 
         self.win = tk.Toplevel(root)
         self.win.withdraw()
@@ -852,9 +856,14 @@ class ChatBubble:
         else:
             self.win.attributes("-transparentcolor", TRANSPARENT)
         self.win.configure(bg=WINDOW_BG)
-        for attr in ("-toolwindow",):
+        # -disabled = CLICK-THROUGH: right-clicks pass through
+        # the bubble to the sprite beneath (the bubble blocked
+        # the menu) -- also stops the bubble stealing focus
+        for attr in ("-toolwindow", "-disabled"):
             try: self.win.wm_attributes(attr, True)
             except tk.TclError: pass
+        self._last_geom = None
+        self._lift_n = 0
 
         # pre-size the bubble to the FINAL text: measure the
         # wrapped text's natural width and height, then adapt the
@@ -955,12 +964,17 @@ class ChatBubble:
                         scr_w - self.W - 8))
         by = ((sy - self.total_h - 6)
               if self.above else (sy + sh + 6))
-        self.win.geometry(f"{self.W}x{self.total_h}+{bx}+{by}")
-        try:
-            self.win.attributes("-topmost", True)
-            self.win.lift()
-        except tk.TclError:
-            pass
+        # only touch geometry when it actually CHANGES -- the
+        # constant geometry()+lift() every 120ms was the flicker
+        geom = (bx, by)
+        if geom != self._last_geom:
+            self._last_geom = geom
+            self.win.geometry(f"{self.W}x{self.total_h}+{bx}+{by}")
+            try:
+                self.win.attributes("-topmost", True)
+                self.win.lift()
+            except tk.TclError:
+                pass
         # the tail tracks the sprite's centre x inside the bubble
         tx = max(12, min(self.W - 12, sx + sw // 2 - bx))
         if self.above:
@@ -1221,7 +1235,7 @@ class AgentMind:
                 # comment via the image_url payload
                 payload = json.dumps({
                     "model": model,
-                    "max_tokens": 120,
+                    "max_tokens": 300,
                     "messages": [
                         {"role": "system", "content": sysmsg},
                         {"role": "user", "content": [
@@ -1246,7 +1260,7 @@ class AgentMind:
                 # block in the messages content
                 payload = json.dumps({
                     "model": model,
-                    "max_tokens": 120,
+                    "max_tokens": 300,
                     "system": sysmsg,
                     "messages": [{"role": "user", "content": [
                         {"type": "text", "text": prompt},
@@ -1272,7 +1286,7 @@ class AgentMind:
             # test image) -- use flash for the look
             payload = json.dumps({
                 "model": "deepseek-flash",
-                "max_tokens": 120,
+                "max_tokens": 300,
                 "messages": [
                     {"role": "system", "content": sysmsg},
                     {"role": "user", "content": [
@@ -1313,10 +1327,18 @@ class AgentMind:
             pass
 
     def _show(self, text: str):
+        # dismiss the previous bubble first -- stacked bubbles
+        # were a flicker/overlap source
+        prev = getattr(self, "_bubble", None)
+        if prev is not None:
+            try:
+                prev._dismiss()
+            except Exception:
+                pass
         line = STARTER_LINES[self.buddy.line_idx]
         evo  = line["evolutions"][self.buddy.evo_stage]
-        ChatBubble(self.buddy.root, self.buddy,
-                   evo["name"], line["color"], text)
+        self._bubble = ChatBubble(self.buddy.root, self.buddy,
+                                  evo["name"], line["color"], text)
 
     def _schedule_passive(self):
         # First comment 3–6 min after start, then every 8–15 min
@@ -1894,18 +1916,27 @@ class Buddy:
 
     # ── Chat input (type to the pet) ──────────────────────────────────────────
     def _open_chat_input(self):
-        """A small input window: type a message, the pet replies
-        in its speech bubble (and remembers the exchange)."""
+        """A small input window in the selection-screen style
+        (dark forest + gold): type a message, the pet replies in
+        its speech bubble (and remembers the exchange)."""
         if not self.agent or self.agent._client is None:
             return
         win = tk.Toplevel(self.root)
         win.title("EeveeMon — Chat")
         win.resizable(False, False)
         sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
-        win.geometry(f"360x96+{(sw-360)//2}+{(sh-96)//2}")
+        win.geometry(f"380x120+{(sw-380)//2}+{(sh-120)//2}")
         win.attributes("-topmost", True)
-        entry = tk.Entry(win, font=("Segoe UI", 11))
-        entry.pack(fill="x", padx=12, pady=(14, 4), ipady=4)
+        win.configure(bg="#0E1F09")
+        # retro header
+        tk.Label(win, text="说点什么吧，训练家！",
+                 bg="#0E1F09", fg="#A8C898",
+                 font=("Segoe UI", 11, "italic")).pack(pady=(12, 4))
+        entry = tk.Entry(win, font=("Segoe UI", 11),
+                         bg="#162412", fg="#FFFFFF",
+                         insertbackground="#C9A227",
+                         relief="flat")
+        entry.pack(fill="x", padx=14, ipady=5)
 
         def send(_event=None):
             text = entry.get().strip()
@@ -1914,7 +1945,11 @@ class Buddy:
             win.destroy()
 
         tk.Button(win, text="Send 发送", command=send,
-                  font=("Segoe UI", 10)).pack(pady=(0, 10))
+                  bg="#6B5A2E", fg="#FFFFFF",
+                  activebackground="#C9A227",
+                  activeforeground="#FFFFFF",
+                  relief="flat",
+                  font=("Segoe UI", 10, "bold")).pack(pady=(10, 10))
         entry.bind("<Return>", send)
         entry.focus_set()
 
