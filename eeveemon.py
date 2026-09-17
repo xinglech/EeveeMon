@@ -1003,22 +1003,35 @@ class AgentMind:
     def _load_config(self):
         """provider.txt: line 1 = provider (deepseek/openai/
         anthropic, default deepseek), line 2 = model (optional).
-        Key from apikey.txt / deepseek_key.txt next to the app."""
-        d = self._app_dir()
+        Key from apikey.txt / deepseek_key.txt next to the app;
+        when frozen, the PARENT folder (the one the user unzipped)
+        is searched too -- dist\\EeveeMon.exe sees the key files
+        placed next to the exe OR next to the dist folder."""
+        dirs = [self._app_dir()]
+        if getattr(sys, "frozen", False):
+            parent = os.path.dirname(self._app_dir())
+            if parent != self._app_dir():
+                dirs.append(parent)
         provider, model = "deepseek", ""
-        pf = os.path.join(d, "provider.txt")
-        if os.path.exists(pf):
-            lines = [l.strip() for l in
-                     open(pf, encoding="utf-8").read().splitlines()]
-            if lines and lines[0]:
-                provider = lines[0].lower()
-            if len(lines) > 1 and lines[1]:
-                model = lines[1]
+        for d in dirs:
+            pf = os.path.join(d, "provider.txt")
+            if os.path.exists(pf):
+                lines = [l.strip() for l in
+                         open(pf, encoding="utf-8")
+                         .read().splitlines()]
+                if lines and lines[0]:
+                    provider = lines[0].lower()
+                if len(lines) > 1 and lines[1]:
+                    model = lines[1]
+                break
         key = ""
-        for kf in ("apikey.txt", "deepseek_key.txt"):
-            fp = os.path.join(d, kf)
-            if os.path.exists(fp):
-                key = open(fp, encoding="utf-8").read().strip()
+        for d in dirs:
+            for kf in ("apikey.txt", "deepseek_key.txt"):
+                fp = os.path.join(d, kf)
+                if os.path.exists(fp):
+                    key = open(fp, encoding="utf-8").read().strip()
+                    break
+            if key:
                 break
         return provider, model, key
 
@@ -1286,8 +1299,10 @@ class Buddy:
         self.size_pct  = 100   # 100 = default (SCALE×2)
         self.agent     = None  # set after selection screen
         # the collection book: every form ever chosen/evolved
-        # into this session {(line_idx, stage), ...}
-        self.unlocked  = {(0, 0)}
+        # into this session {(line_idx, stage), ...}.  Starts
+        # EMPTY -- choosing a starter unlocks its first card
+        # (the restore path below fills it from the save file)
+        self.unlocked  = set()
         self._album_imgs = []
         # evolution-stone inventory (the light item system)
         self.inventory = {"水之石": 1, "雷之石": 1, "火之石": 1,
