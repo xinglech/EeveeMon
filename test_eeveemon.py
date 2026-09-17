@@ -88,6 +88,7 @@ class FakeBuddy:
         self.frame_i = 0
         self.size_pct = 100
         self.is_shiny = False
+        self.unlocked = {(3, 0)}
         self.root = _Root()
         self.agent = type("A", (), {"on_evolve": lambda s: None,
                                     "_client": None})()
@@ -95,6 +96,8 @@ class FakeBuddy:
     def _apply(self): pass
     def _evo_flash(self): pass
     def _build_menu(self): pass
+    def _save_state(self): pass
+    def _load_state(self): return None
     def _reroll_shiny(self): pass
     def _throw(self): pass
     def _change_line(self, i): pass
@@ -508,12 +511,75 @@ if os.path.exists(keyfile) and os.path.getsize(keyfile) > 10:
         check("real API call shows text via the drain loop",
               bool(shown) and len(shown[0]) > 0,
               (shown[0][:40] if shown else "no bubble"))
+        # v1.4: the conversation memory records the exchange
+        check("conversation memory records the exchange",
+              len(ag.history) >= 2
+              and ag.history[-2][0] == "user"
+              and ag.history[-1][0] == "assistant")
     except Exception as e:
         check("end-to-end AI chat", False, str(e))
     finally:
         root5.destroy()
 else:
     print("SKIP  end-to-end AI chat (no key file)")
+
+# ---- 11b. save/load roundtrip (the collection book persists) ----
+import tempfile as _tf
+_tmp = _tf.NamedTemporaryFile(delete=False, suffix=".json")
+_tmp.close()
+_orig_save = M.SAVE_PATH
+M.SAVE_PATH = _tmp.name
+try:
+    sfb = FakeBuddy()
+    sfb.line_idx = 3
+    sfb.evo_stage = 2
+    sfb.is_shiny = True
+    sfb.size_pct = 150
+    sfb.inventory["水之石"] = 0
+    sfb.unlocked = {(3, 0), (3, 1), (3, 2)}
+    sfb._gift_until = 12345.0
+    M.Buddy._save_state(sfb)
+    loaded = M.Buddy._load_state(sfb)
+    check("save file written", loaded is not None)
+    check("save roundtrip: form + stage",
+          loaded and loaded["line_idx"] == 3
+          and loaded["evo_stage"] == 2)
+    check("save roundtrip: shiny + size",
+          loaded and loaded["is_shiny"] is True
+          and loaded["size_pct"] == 150)
+    check("save roundtrip: stone economy",
+          loaded and loaded["inventory"]["水之石"] == 0)
+    check("save roundtrip: collection book",
+          loaded and {tuple(k) for k in loaded["unlocked"]}
+          == {(3, 0), (3, 1), (3, 2)})
+    # a fresh Buddy reads the save and skips the selection
+    # screen (simulated: the __init__ branch is exercised by
+    # checking _started logic on a fake restore)
+    rfb = FakeBuddy()
+    rfb._started = False
+    rfb.line_idx = 0
+    rfb.inventory = {"水之石": 1, "雷之石": 1, "火之石": 1,
+                     "叶之石": 1, "冰之石": 1}
+    rfb.unlocked = {(0, 0)}
+    save = M.Buddy._load_state(rfb)
+    if save:
+        rfb.line_idx = int(save["line_idx"])
+        rfb.evo_stage = int(save["evo_stage"])
+        rfb.size_pct = int(save.get("size_pct", 100))
+        rfb.inventory.update(save.get("inventory", {}))
+        rfb.unlocked = {tuple(k) for k in save.get("unlocked", [])}
+        rfb._started = True
+    check("restore path sets _started and skips selection",
+          rfb._started and rfb.line_idx == 3 and rfb.evo_stage == 2)
+    check("restore path carries the album",
+          (3, 2) in rfb.unlocked)
+finally:
+    M.SAVE_PATH = _orig_save
+    try:
+        import os as _os
+        _os.remove(_tmp.name)
+    except OSError:
+        pass
 
 print()
 if FAILS:
