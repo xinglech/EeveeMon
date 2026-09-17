@@ -13,6 +13,22 @@ entirely controlled from its right-click menu.
 
 ---
 
+## What's new in v1.5
+
+- **Six new friends** — Arbok (sinister-but-loyal), Wobbuffet (zen
+  mirror-koans), Piplup (proud penguin prince), Togepi (innocent joy),
+  Lickitung (goofy foodie) and Weezing (grumpy factory uncle), each
+  with a distinct personality that shows in chat.
+- **You can talk back** — double-click the pet (or the *Chat 输入…*
+  menu) opens a retro-styled input window: type, send, and the pet
+  replies — and remembers the conversation.
+- **Look Around works with DeepSeek too** — deepseek-flash accepts
+  the standard image payload (deepseek-v4-pro does not), so the
+  screen-comment feature now works on all three providers.
+- Bubble polish: no more flicker (position-only redraws), the bubble
+  is click-through so right-clicks reach the pet beneath, and long
+  replies type out fully instead of being cut off.
+
 ## What's new in v1.4
 
 - **Progress persists** — the collection book, the stone inventory,
@@ -27,7 +43,7 @@ entirely controlled from its right-click menu.
 
 ## What's new in v1.3
 
-- **Collection book (收集册)** — a 24-card album in the right-click menu:
+- **Collection book (收集册)** — a 30-card album in the right-click menu:
   locked cards sit face down as `?` with their unlock hint, and every form
   you pick or evolve into flips face-up with its sprite. Catching 'em all
   is now a visible long-term goal.
@@ -75,6 +91,12 @@ entirely controlled from its right-click menu.
 | **Meowth** | Normal | none (single form) |
 | **Latias** | Dragon | none (single form) |
 | **Pikachu** | Electric | none (single form) |
+| **Arbok** | Poison | none (single form) |
+| **Wobbuffet** | Psychic | none (single form) |
+| **Piplup** | Water | none (single form) |
+| **Togepi** | Fairy | none (single form) |
+| **Lickitung** | Normal | none (single form) |
+| **Weezing** | Poison | none (single form) |
 
 **Branching evolution** — Eevee's right-click *Evolve* menu offers all eight
 Eeveelutions, each with its canonical method displayed and enforced:
@@ -95,7 +117,7 @@ evolving consumes the stone; the menu shows live counts and disables
 `×0` entries. *Gift 进化石* grants a random stone on a 10-minute cooldown.
 
 **Collection book (收集册)** — the right-click *Collection 收集册* menu
-opens the card album: all 24 forms face down as `?` cards with their
+opens the card album: all 30 forms face down as `?` cards with their
 unlock hint (starter / previous stage / stone name / friendship) until
 you choose or evolve into them — collecting the rest of the roster is
 the long-term goal. Every form you have ever picked or evolved into
@@ -120,7 +142,7 @@ this session flips face-up with its sprite and name.
 ### Option A — prebuilt executable (no dependencies)
 
 Download `EeveeMon.exe` from
-[Releases](../../releases), double-click, and play. All 48 sprites are
+[Releases](../../releases), double-click, and play. All 60 sprites are
 bundled inside the executable.
 
 ### Option B — run from source
@@ -162,7 +184,7 @@ Everything is reachable from the pet's right-click menu:
 | Re-roll the 1/100 shiny | Reroll Shiny |
 | Chat with the pet | Talk to Me |
 | Have the pet "look" at your screen | Look Around |
-| Open the 24-card collection album | Collection 收集册 |
+| Open the 30-card collection album | Collection 收集册 |
 | Fun bubble animation | Throw Up |
 | Exit | Quit |
 
@@ -190,11 +212,10 @@ exclusively to the chosen provider's official endpoint
 (`api.deepseek.com` / `api.openai.com` / `api.anthropic.com`), and is never
 printed or persisted anywhere else.
 
-**Look Around and vision.** With an OpenAI or Anthropic key, *Look Around*
-captures your screen and sends it to the vision-capable model
-(gpt-4o-mini / Claude Haiku), and the pet comments on what it sees — in
-character. DeepSeek's chat model is text-only, so there the pet honestly
-says it cannot see yet; switching the provider file enables real vision.
+**Look Around and vision.** *Look Around* captures your screen and the
+pet comments on what it sees — in character. It works with all three
+providers: OpenAI (gpt-4o-mini), Anthropic (Claude Haiku), and DeepSeek
+(deepseek-flash accepts image payloads; deepseek-v4-pro does not).
 
 ## Testing
 
