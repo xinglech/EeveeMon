@@ -49,6 +49,9 @@ class FakeBuddy:
     def _evolve(self): self.calls.append("evolve-linear")
     def _unlock_hint(self, line, si):
         return M.Buddy._unlock_hint(self, line, si)
+    def _album_photo(self, path):
+        return M.Buddy._album_photo(self, path)
+    ALBUM_BOX = (78, 58)
 
 
 root = tk.Tk()
