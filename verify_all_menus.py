@@ -43,6 +43,7 @@ class FakeBuddy:
     def _quit_app(self): self.calls.append("quit")
     def _open_select(self): self.calls.append("select")
     def _open_collection(self): self.calls.append("collection")
+    def _open_chat_input(self): self.calls.append("chat_input")
     def _devolve(self): self.calls.append("devolve")
     def _gift(self): self.calls.append("gift")
     def _evolve(self): self.calls.append("evolve-linear")
