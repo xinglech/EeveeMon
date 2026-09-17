@@ -919,10 +919,11 @@ class ChatBubble:
         self.root  = root
         self.buddy = buddy
         self.full_text = textwrap.fill(text, width=34)
-        # the auto-dismiss waits for the typewriter to finish:
-        # long replies were being cut mid-sentence
-        self.LIFE = max(9000, 6000 + len(self.full_text)
-                        * self.CHAR_MS)
+        # the auto-dismiss waits for the typewriter to finish AND
+        # leaves reading time: long replies were disappearing
+        # before they could be read
+        self.LIFE = max(12000, 8000 + len(self.full_text)
+                        * self.CHAR_MS * 2)
 
         self.win = tk.Toplevel(root)
         self.win.withdraw()
@@ -1359,9 +1360,17 @@ class AgentMind:
                 self._inbox.put(("say", text))
                 return
             # deepseek: v4-pro ignores images BUT deepseek-flash
-            # accepts the standard OpenAI-style image payload
-            # (tested 2026-09-17: it answered 'Red' on a base64
-            # test image) -- use flash for the look
+            # accepts the standard OpenAI-style image payload --
+            # WITH A CATCH (measured 2026-09-17): base64 images
+            # above ~256x144 make it return empty content (the
+            # reasoning eats the budget), so the look image is
+            # downscaled hard for deepseek.  256x144 is enough
+            # for 'what app is open' comments.
+            small = shot.resize((256, 144), Image.LANCZOS)
+            sbuf = io.BytesIO()
+            small.save(sbuf, format="PNG")
+            img_small = base64.standard_b64encode(
+                sbuf.getvalue()).decode()
             payload = json.dumps({
                 "model": "deepseek-flash",
                 "max_tokens": 300,
@@ -1371,7 +1380,7 @@ class AgentMind:
                         {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {
                             "url": "data:image/png;base64,"
-                            + img_b64}}]}],
+                            + img_small}}]}],
             }).encode("utf-8")
             req = urllib.request.Request(
                 "https://api.deepseek.com/chat/completions",
