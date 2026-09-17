@@ -43,7 +43,7 @@ entirely controlled from its right-click menu.
 
 ## What's new in v1.3
 
-- **Collection book (收集册)** — a 30-card album in the right-click menu:
+- **Collection book (收集册)** — a 40-card album in the right-click menu:
   locked cards sit face down as `?` with their unlock hint, and every form
   you pick or evolve into flips face-up with its sprite. Catching 'em all
   is now a visible long-term goal.
@@ -88,15 +88,15 @@ entirely controlled from its right-click menu.
 | Squirtle | Water | Squirtle → Wartortle → Blastoise |
 | **Eevee** | **Multi** | Eevee → any of the 8 Eeveelutions (branching) |
 | **Torchic** | Fighting | Torchic → Combusken → Blaziken |
-| **Meowth** | Normal | none (single form) |
-| **Latias** | Dragon | none (single form) |
-| **Pikachu** | Electric | none (single form) |
-| **Arbok** | Poison | none (single form) |
-| **Wobbuffet** | Psychic | none (single form) |
-| **Piplup** | Water | none (single form) |
-| **Togepi** | Fairy | none (single form) |
-| **Lickitung** | Normal | none (single form) |
-| **Weezing** | Poison | none (single form) |
+| **Meowth** | Normal | Meowth → Persian |
+| **Latias** | Dragon | none (legendary, single form) |
+| **Pikachu** | Electric | Pikachu → Raichu |
+| **Ekans** | Poison | Ekans → Arbok |
+| **Wynaut** | Psychic | Wynaut → Wobbuffet |
+| **Piplup** | Water | Piplup → Prinplup → Empoleon |
+| **Togepi** | Fairy | Togepi → Togetic → Togekiss |
+| **Lickitung** | Normal | Lickitung → Lickilicky |
+| **Koffing** | Poison | Koffing → Weezing |
 
 **Branching evolution** — Eevee's right-click *Evolve* menu offers all eight
 Eeveelutions, each with its canonical method displayed and enforced:
@@ -117,7 +117,7 @@ evolving consumes the stone; the menu shows live counts and disables
 `×0` entries. *Gift 进化石* grants a random stone on a 10-minute cooldown.
 
 **Collection book (收集册)** — the right-click *Collection 收集册* menu
-opens the card album: all 30 forms face down as `?` cards with their
+opens the card album: all 40 forms face down as `?` cards with their
 unlock hint (starter / previous stage / stone name / friendship) until
 you choose or evolve into them — collecting the rest of the roster is
 the long-term goal. Every form you have ever picked or evolved into
@@ -142,7 +142,7 @@ this session flips face-up with its sprite and name.
 ### Option A — prebuilt executable (no dependencies)
 
 Download `EeveeMon.exe` from
-[Releases](../../releases), double-click, and play. All 60 sprites are
+[Releases](../../releases), double-click, and play. All 80 sprites are
 bundled inside the executable.
 
 ### Option B — run from source
@@ -184,7 +184,7 @@ Everything is reachable from the pet's right-click menu:
 | Re-roll the 1/100 shiny | Reroll Shiny |
 | Chat with the pet | Talk to Me |
 | Have the pet "look" at your screen | Look Around |
-| Open the 30-card collection album | Collection 收集册 |
+| Open the 40-card collection album | Collection 收集册 |
 | Fun bubble animation | Throw Up |
 | Exit | Quit |
 
