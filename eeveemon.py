@@ -1853,61 +1853,100 @@ class Buddy:
     def _open_collection(self):
         """The card album: every form in the game, unlocked ones
         face up (sprite + name), locked ones face down with the
-        unlock hint -- the 'collect the rest' goal made visible."""
+        unlock hint -- the 'collect the rest' goal made visible.
+        The grid reflows to the window width (drag-resize =
+        re-layout) and the whole content scrolls when it is
+        taller than the window, so all 40 cards stay reachable."""
         win = tk.Toplevel(self.root)
         win.title("EeveeMon — Collection 收集册")
         win.resizable(True, True)
-        c = tk.Canvas(win, width=560, height=600, bg="#0E1F09",
-                      highlightthickness=0)
-        c.pack(fill="both", expand=True)
-        CW, CH, PAD, COLS = 108, 116, 8, 5
-        col = row = total = 0
+        win.geometry("576x620")
+        vs = tk.Scrollbar(win, orient="vertical")
+        vs.pack(side="right", fill="y")
+        c = tk.Canvas(win, bg="#0E1F09", highlightthickness=0,
+                      yscrollcommand=vs.set)
+        c.pack(side="left", fill="both", expand=True)
+        vs.config(command=c.yview)
+        CW, CH, PAD, TOP = 108, 116, 8, 34
+
+        # bake each unlocked sprite ONCE per album window (GIF
+        # decode + fit is the slow part); reflows only re-position
+        # the already-baked PhotoImages
         self._album_imgs = []
+        photos = {}
         for li, line in enumerate(STARTER_LINES):
             for si, ev in enumerate(line["evolutions"]):
-                key = (li, si)
-                have = key in self.unlocked
-                x0 = PAD + col * CW
-                y0 = 34 + row * CH
-                x1, y1 = x0 + CW - PAD, y0 + CH - PAD
-                c.create_rectangle(
-                    x0, y0, x1, y1,
-                    fill="#162412" if have else "#0B1A08",
-                    outline="#C9A227" if have else "#2A3A20",
-                    width=2 if have else 1)
-                if have:
-                    path = sprite_path(ev["id"], False)
-                    if os.path.exists(path):
-                        # uniform card look: sprites come in very
-                        # different native sizes (Togepi 40x38 vs
-                        # Latias 186px wide), so each is baked
-                        # over the card colour and FIT into the
-                        # same box (aspect kept)
-                        img = self._album_photo(path)
+                if (li, si) not in self.unlocked:
+                    continue
+                path = sprite_path(ev["id"], False)
+                if os.path.exists(path):
+                    img = self._album_photo(path)
+                    if img is not None:
+                        self._album_imgs.append(img)
+                        photos[(li, si)] = img
+
+        state = {"cols": 0}
+
+        def draw(cols):
+            """Draw the grid once with `cols` columns and update
+            the scroll region to the full grid extent."""
+            c.delete("all")
+            col = row = total = 0
+            for li, line in enumerate(STARTER_LINES):
+                for si, ev in enumerate(line["evolutions"]):
+                    key = (li, si)
+                    have = key in self.unlocked
+                    x0 = PAD + col * CW
+                    y0 = TOP + row * CH
+                    x1, y1 = x0 + CW - PAD, y0 + CH - PAD
+                    c.create_rectangle(
+                        x0, y0, x1, y1,
+                        fill="#162412" if have else "#0B1A08",
+                        outline="#C9A227" if have else "#2A3A20",
+                        width=2 if have else 1)
+                    if have:
+                        img = photos.get(key)
                         if img is not None:
-                            self._album_imgs.append(img)
                             c.create_image((x0 + x1) // 2,
                                            y0 + 34, image=img)
-                    c.create_text((x0 + x1) // 2, y1 - 14,
-                                  text=ev["name"], fill="#FFFFFF",
-                                  font=("Segoe UI", 8, "bold"))
-                else:
-                    c.create_text((x0 + x1) // 2, y0 + 36,
-                                  text="?", fill="#4A6840",
-                                  font=("Segoe UI", 20, "bold"))
-                    c.create_text((x0 + x1) // 2, y1 - 14,
-                                  text=self._unlock_hint(line, si),
-                                  fill="#4A6840",
-                                  font=("Segoe UI", 7))
-                total += 1
-                col += 1
-                if col >= COLS:
-                    col = 0
-                    row += 1
-        got = len(self.unlocked)
-        c.create_text(280, 16,
-                      text=f"Collection {got}/{total} — 进化与切换即解锁",
-                      fill="#A8C898", font=("Segoe UI", 11, "bold"))
+                        c.create_text((x0 + x1) // 2, y1 - 14,
+                                      text=ev["name"], fill="#FFFFFF",
+                                      font=("Segoe UI", 8, "bold"))
+                    else:
+                        c.create_text((x0 + x1) // 2, y0 + 36,
+                                      text="?", fill="#4A6840",
+                                      font=("Segoe UI", 20, "bold"))
+                        c.create_text((x0 + x1) // 2, y1 - 14,
+                                      text=self._unlock_hint(line, si),
+                                      fill="#4A6840",
+                                      font=("Segoe UI", 7))
+                    total += 1
+                    col += 1
+                    if col >= cols:
+                        col = 0
+                        row += 1
+            got = len(self.unlocked)
+            c.create_text(max(c.winfo_width() // 2, 140), 16,
+                          text=f"Collection {got}/{total} — 进化与切换即解锁",
+                          fill="#A8C898", font=("Segoe UI", 11, "bold"))
+            c.configure(scrollregion=c.bbox("all"))
+
+        def on_resize(_evt=None):
+            """Window resized: re-draw only when the number of
+            columns changes; otherwise just refresh the scroll
+            region (cheap, no sprite work)."""
+            cols = max(1, (c.winfo_width() - PAD) // CW)
+            if cols != state["cols"]:
+                state["cols"] = cols
+                draw(cols)
+            else:
+                c.configure(scrollregion=c.bbox("all"))
+
+        c.bind("<Configure>", on_resize)
+        win.update_idletasks()
+        if state["cols"] == 0:          # no Configure fired yet
+            state["cols"] = max(1, (c.winfo_width() - PAD) // CW)
+            draw(state["cols"])
         try:
             win.attributes("-topmost", True)
             win.lift()
