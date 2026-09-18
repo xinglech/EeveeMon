@@ -51,6 +51,8 @@ class FakeBuddy:
         return M.Buddy._unlock_hint(self, line, si)
     def _album_photo(self, path):
         return M.Buddy._album_photo(self, path)
+    def _album_silhouette(self, path):
+        return M.Buddy._album_silhouette(self, path)
     ALBUM_BOX = (78, 58)
 
 
