@@ -1855,7 +1855,7 @@ class Buddy:
                     if r > 225 and g < 70 and b > 225:
                         px[xx, yy] = (0, 0, 0, 0)
                     elif a > 30:
-                        px[xx, yy] = (47, 90, 50, 255)
+                        px[xx, yy] = (31, 61, 34, 255)
             card = Image.new("RGBA", base.size, "#0B1A08")
             card.paste(base, mask=base.split()[3])
             card.thumbnail((70, 62), Image.LANCZOS)
@@ -1948,17 +1948,19 @@ class Buddy:
                             c.create_image((x0 + x1) // 2, y0 + 38,
                                            image=sil)
                         # chunky graffiti-style question mark over
-                        # the silhouette: bold 3/4-circle hook,
+                        # the silhouette: bold 3/4-circle hook
+                        # (clockwise sweep, open bottom-left),
                         # thick tail, round dot
                         qx, qy = (x0 + x1) // 2, y0 + 34
-                        qr = 15
+                        qr = 12
                         c.create_arc(qx - qr, qy - qr, qx + qr, qy + qr,
-                                     start=0, extent=270, style=tk.ARC,
-                                     width=5, outline="#C9A227")
-                        c.create_line(qx, qy + qr - 2, qx, qy + qr + 8,
-                                      width=5, fill="#C9A227")
-                        c.create_oval(qx - 4, qy + qr + 14,
-                                      qx + 4, qy + qr + 22,
+                                     start=180, extent=-270,
+                                     style=tk.ARC, width=4,
+                                     outline="#C9A227")
+                        c.create_line(qx, qy + qr - 2, qx, qy + qr + 6,
+                                      width=4, fill="#C9A227")
+                        c.create_oval(qx - 3, qy + qr + 11,
+                                      qx + 3, qy + qr + 17,
                                       fill="#C9A227", outline="#C9A227")
                         c.create_text((x0 + x1) // 2, y1 - 14,
                                       text=self._unlock_hint(line, si),
