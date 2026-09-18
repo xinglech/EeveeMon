@@ -1832,7 +1832,7 @@ class Buddy:
                     r, g, b, a = px[xx, yy]
                     if r > 225 and g < 70 and b > 225:
                         px[xx, yy] = (0, 0, 0, 0)
-            card = Image.new("RGBA", base.size, "#162412")
+            card = Image.new("RGBA", base.size, "#FFFDF8")
             card.paste(base, mask=base.split()[3])
             card.thumbnail(self.ALBUM_BOX, Image.LANCZOS)
             return ImageTk.PhotoImage(card.convert("RGB"))
@@ -1856,18 +1856,32 @@ class Buddy:
         unlock hint -- the 'collect the rest' goal made visible.
         The grid reflows to the window width (drag-resize =
         re-layout) and the whole content scrolls when it is
-        taller than the window, so all 40 cards stay reachable."""
+        taller than the window, so all 40 cards stay reachable.
+        Pastel-kawaii styling: cream background sprinkled with
+        hearts and sparkles, rounded cards with soft shadows,
+        and the header doubles as a pink progress bar."""
         win = tk.Toplevel(self.root)
-        win.title("EeveeMon — Collection 收集册")
+        win.title("EeveeMon — 收集册 ♥")
         win.resizable(True, True)
         win.geometry("576x620")
-        vs = tk.Scrollbar(win, orient="vertical")
+        vs = tk.Scrollbar(win, orient="vertical", width=12,
+                          troughcolor="#FFE3EC", bg="#FFB7C5",
+                          activebackground="#FF9DBB",
+                          borderwidth=0, relief="flat")
         vs.pack(side="right", fill="y")
-        c = tk.Canvas(win, bg="#0E1F09", highlightthickness=0,
+        c = tk.Canvas(win, bg="#FFF7EE", highlightthickness=0,
                       yscrollcommand=vs.set)
         c.pack(side="left", fill="both", expand=True)
         vs.config(command=c.yview)
-        CW, CH, PAD, TOP = 108, 116, 8, 34
+        CW, CH, PAD, TOP = 108, 116, 8, 48
+
+        def rrect(x0, y0, x1, y1, r, **kw):
+            """Rounded rectangle via a smoothed polygon."""
+            return c.create_polygon(
+                x0 + r, y0, x1 - r, y0, x1, y0, x1, y0 + r,
+                x1, y1 - r, x1, y1, x1 - r, y1, x0 + r, y1,
+                x0, y1, x0, y1 - r, x0, y0 + r, x0, y0,
+                smooth=True, **kw)
 
         # bake each unlocked sprite ONCE per album window (GIF
         # decode + fit is the slow part); reflows only re-position
@@ -1899,36 +1913,64 @@ class Buddy:
                     x0 = PAD + col * CW
                     y0 = TOP + row * CH
                     x1, y1 = x0 + CW - PAD, y0 + CH - PAD
-                    c.create_rectangle(
-                        x0, y0, x1, y1,
-                        fill="#162412" if have else "#0B1A08",
-                        outline="#C9A227" if have else "#2A3A20",
-                        width=2 if have else 1)
+                    # soft drop shadow + rounded card
+                    rrect(x0 + 3, y0 + 4, x1 + 3, y1 + 4, 10,
+                          fill="#F3E3CE", outline="")
+                    rrect(x0, y0, x1, y1, 10,
+                          fill="#FFFDF8" if have else "#F9F1E4",
+                          outline="#FFB7C5" if have else "#EAD9C2",
+                          width=2)
                     if have:
                         img = photos.get(key)
                         if img is not None:
                             c.create_image((x0 + x1) // 2,
                                            y0 + 34, image=img)
                         c.create_text((x0 + x1) // 2, y1 - 14,
-                                      text=ev["name"], fill="#FFFFFF",
+                                      text=ev["name"], fill="#8A5A44",
                                       font=("Segoe UI", 8, "bold"))
                     else:
-                        c.create_text((x0 + x1) // 2, y0 + 36,
-                                      text="?", fill="#4A6840",
-                                      font=("Segoe UI", 20, "bold"))
+                        c.create_text((x0 + x1) // 2, y0 + 20,
+                                      text="♡", fill="#FFB7C5",
+                                      font=("Segoe UI", 9))
+                        c.create_text((x0 + x1) // 2, y0 + 42,
+                                      text="?", fill="#CBA98F",
+                                      font=("Segoe UI", 18, "bold"))
                         c.create_text((x0 + x1) // 2, y1 - 14,
                                       text=self._unlock_hint(line, si),
-                                      fill="#4A6840",
+                                      fill="#B08A6A",
                                       font=("Segoe UI", 7))
                     total += 1
                     col += 1
                     if col >= cols:
                         col = 0
                         row += 1
+            # background sprinkles: hearts / sparkles / stars in
+            # pale pastel inks, seeded so each reflow looks alike
+            _r = random.Random(17)
+            deco_w = max(c.winfo_width(), cols * CW + PAD)
+            deco_h = TOP + (row + 1) * CH + 40
+            for _ in range(70):
+                c.create_text(
+                    _r.randint(8, deco_w - 8),
+                    _r.randint(6, deco_h - 6),
+                    text=_r.choice("♥✦✿♪★♡"),
+                    fill=_r.choice(["#FFD9E6", "#FFE8B8", "#E8F4D8",
+                                    "#F3DDF2", "#D9ECF6"]),
+                    font=("Segoe UI Symbol", _r.randint(8, 15)))
+            # header pill doubles as the progress bar: the pink
+            # fill grows from the left as cards are collected
             got = len(self.unlocked)
-            c.create_text(max(c.winfo_width() // 2, 140), 16,
-                          text=f"Collection {got}/{total} — 进化与切换即解锁",
-                          fill="#A8C898", font=("Segoe UI", 11, "bold"))
+            cx = max(c.winfo_width() // 2, 150)
+            hdr = f"EeveeMon 收集册 ♥ {got}/{total}"
+            hw = max(240, len(hdr) * 13 + 28)
+            rrect(cx - hw / 2, 10, cx + hw / 2, 34, 12,
+                  fill="#FFE3EC", outline="#FFB7C5", width=2)
+            if got:
+                fill_end = cx - hw / 2 + 4 + (hw - 8) * (got / total)
+                rrect(cx - hw / 2 + 4, 14, max(cx - hw / 2 + 8, fill_end),
+                      30, 8, fill="#FF9DBB", outline="")
+            c.create_text(cx, 22, text=hdr, fill="#8A3B5C",
+                          font=("Segoe UI", 11, "bold"))
             c.configure(scrollregion=c.bbox("all"))
 
         def on_resize(_evt=None):
