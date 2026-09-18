@@ -314,6 +314,7 @@ class AlbumBuddy(FakeBuddy):
         self.EEVEE_LINE = 3
     _unlock_hint = M.Buddy._unlock_hint
     _album_photo = M.Buddy._album_photo
+    _album_silhouette = M.Buddy._album_silhouette
     ALBUM_BOX = M.Buddy.ALBUM_BOX
 
 
