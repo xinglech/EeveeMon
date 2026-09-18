@@ -28,6 +28,10 @@ entirely controlled from its right-click menu.
 - Bubble polish: no more flicker (position-only redraws), the bubble
   is click-through so right-clicks reach the pet beneath, and long
   replies type out fully instead of being cut off.
+- **Collection book now resizes** — the card grid reflows to match
+  the window width as you drag-resize (narrow window = fewer columns),
+  and the album scrolls vertically, so all 40 cards stay reachable at
+  any window size.
 
 ## What's new in v1.4
 
@@ -79,7 +83,7 @@ entirely controlled from its right-click menu.
 
 ## Features
 
-**Roster** — eight starter cards (4×2 grid) on the selection screen:
+**Roster** — fourteen starter lines on the animated selection screen:
 
 | Line | Type | Evolution |
 |---|---|---|
