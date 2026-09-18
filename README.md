@@ -32,10 +32,6 @@ entirely controlled from its right-click menu.
   the window width as you drag-resize (narrow window = fewer columns),
   and the album scrolls vertically, so all 40 cards stay reachable at
   any window size.
-- **Collection book, cuter** — pastel kawaii restyle: cream
-  background sprinkled with hearts and sparkles, rounded cards with
-  soft drop shadows, locked cards with a little ♡, and the header
-  doubles as a pink progress bar that fills as you collect.
 
 ## What's new in v1.4
 
