@@ -1839,6 +1839,30 @@ class Buddy:
         except Exception:
             return None
 
+    def _album_silhouette(self, path):
+        """First GIF frame as a solid dark silhouette baked over
+        the locked-card colour -- the classic 'who's that
+        Pokemon' shadow of the exact form the card will reveal."""
+        try:
+            src = Image.open(path).convert("RGBA")
+            fr = src.copy()
+            base = Image.new("RGBA", fr.size, (255, 0, 255, 255))
+            base.paste(fr, mask=fr.split()[3])
+            px = base.load()
+            for yy in range(base.height):
+                for xx in range(base.width):
+                    r, g, b, a = px[xx, yy]
+                    if r > 225 and g < 70 and b > 225:
+                        px[xx, yy] = (0, 0, 0, 0)
+                    elif a > 30:
+                        px[xx, yy] = (47, 90, 50, 255)
+            card = Image.new("RGBA", base.size, "#0B1A08")
+            card.paste(base, mask=base.split()[3])
+            card.thumbnail((70, 62), Image.LANCZOS)
+            return ImageTk.PhotoImage(card.convert("RGB"))
+        except Exception:
+            return None
+
     def _unlock_hint(self, line, si: int) -> str:
         """The unlock condition shown on a locked card."""
         if si == 0:
@@ -1869,21 +1893,27 @@ class Buddy:
         vs.config(command=c.yview)
         CW, CH, PAD, TOP = 108, 116, 8, 34
 
-        # bake each unlocked sprite ONCE per album window (GIF
-        # decode + fit is the slow part); reflows only re-position
-        # the already-baked PhotoImages
+        # bake each unlocked sprite and each locked silhouette
+        # ONCE per album window (GIF decode + fit is the slow
+        # part); reflows only re-position the baked PhotoImages
         self._album_imgs = []
         photos = {}
+        sils = {}
         for li, line in enumerate(STARTER_LINES):
             for si, ev in enumerate(line["evolutions"]):
-                if (li, si) not in self.unlocked:
-                    continue
                 path = sprite_path(ev["id"], False)
-                if os.path.exists(path):
+                if not os.path.exists(path):
+                    continue
+                if (li, si) in self.unlocked:
                     img = self._album_photo(path)
                     if img is not None:
                         self._album_imgs.append(img)
                         photos[(li, si)] = img
+                else:
+                    sil = self._album_silhouette(path)
+                    if sil is not None:
+                        self._album_imgs.append(sil)
+                        sils[(li, si)] = sil
 
         state = {"cols": 0}
 
@@ -1913,9 +1943,23 @@ class Buddy:
                                       text=ev["name"], fill="#FFFFFF",
                                       font=("Segoe UI", 8, "bold"))
                     else:
-                        c.create_text((x0 + x1) // 2, y0 + 36,
-                                      text="?", fill="#4A6840",
-                                      font=("Segoe UI", 20, "bold"))
+                        sil = sils.get(key)
+                        if sil is not None:
+                            c.create_image((x0 + x1) // 2, y0 + 38,
+                                           image=sil)
+                        # chunky graffiti-style question mark over
+                        # the silhouette: bold 3/4-circle hook,
+                        # thick tail, round dot
+                        qx, qy = (x0 + x1) // 2, y0 + 34
+                        qr = 15
+                        c.create_arc(qx - qr, qy - qr, qx + qr, qy + qr,
+                                     start=0, extent=270, style=tk.ARC,
+                                     width=5, outline="#C9A227")
+                        c.create_line(qx, qy + qr - 2, qx, qy + qr + 8,
+                                      width=5, fill="#C9A227")
+                        c.create_oval(qx - 4, qy + qr + 14,
+                                      qx + 4, qy + qr + 22,
+                                      fill="#C9A227", outline="#C9A227")
                         c.create_text((x0 + x1) // 2, y1 - 14,
                                       text=self._unlock_hint(line, si),
                                       fill="#4A6840",
